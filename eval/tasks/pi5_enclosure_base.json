@@ -1,0 +1,17 @@
+{
+  "id": "pi5_enclosure_base",
+  "title": "Raspberry Pi 5 enclosure base tray",
+  "prompt": "Model the base tray of an enclosure for a Raspberry Pi 5: external footprint about 95 x 65 mm, 2 mm wall thickness, 2.5 mm floor thickness, with standoffs matching the Pi 5 mounting-hole pattern. Drive WallThickness and FloorThickness from a Parameters spreadsheet.",
+  "checks": {
+    "validate": true,
+    "watertight": true,
+    "single_solid": true,
+    "dimensions": [
+      {"name": "footprint_x", "source": "bbox", "axis": "x", "expected": 95.0, "tol": 1.0},
+      {"name": "footprint_y", "source": "bbox", "axis": "y", "expected": 65.0, "tol": 1.0},
+      {"name": "WallThickness", "source": "alias", "alias": "WallThickness", "expected": 2.0, "tol": 0.02},
+      {"name": "FloorThickness", "source": "alias", "alias": "FloorThickness", "expected": 2.5, "tol": 0.02}
+    ],
+    "parametric_probe": {"alias": "WallThickness", "delta": 0.5}
+  }
+}

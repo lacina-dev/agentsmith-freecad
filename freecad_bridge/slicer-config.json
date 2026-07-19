@@ -1,0 +1,31 @@
+{
+  "comment": "AgentSmith slicer fleet for slice_check.py / print_send.py. 'default_printer' is used when the user doesn't name one — the agent must then OFFER the other keys in its report. Profile names are resolved inside OrcaSlicer's bundled resources (auto-extracted once from the AppImage into ~/.cache/agentsmith-orca/profiles; the preset 'inherits' chain is flattened because the CLI doesn't resolve it for by-path presets). CORE One tip: process '0.20mm STRUCTURAL @CORE One 0.4' is the better choice for load-bearing parts — mention it when relevant. 'ston_wolf' is a custom machine; the user supplies its profiles at home (fill machine/process/filament, remove 'unconfigured'). 'network' blocks feed print_send.py — hosts get filled in at home.",
+  "default_printer": "core_one",
+  "support": "auto",
+  "orca_binary": "orca-slicer",
+  "orca_appimage": "/home/robert/AppImages/OrcaSlicer_V2.4.2.AppImage",
+  "profiles_dir": null,
+  "printers": {
+    "core_one": {
+      "label": "Prusa CORE One (0.4 nozzle, PETG)",
+      "vendor": "Prusa",
+      "machine": "Prusa CORE One 0.4 nozzle",
+      "process": "0.20mm SPEED @CORE One 0.4",
+      "filament": "Prusa Generic PETG @CORE One",
+      "network": {"type": "prusalink", "host": "", "api_key": ""}
+    },
+    "qidi_max3": {
+      "label": "QIDI X-Max 3 (0.4 nozzle, PETG)",
+      "vendor": "Qidi",
+      "machine": "Qidi X-Max 3 0.4 nozzle",
+      "process": "0.20mm Standard @Qidi XMax3",
+      "filament": "Qidi Generic PETG",
+      "network": {"type": "moonraker", "host": ""}
+    },
+    "ston_wolf": {
+      "label": "Ston WOLF (custom)",
+      "unconfigured": true,
+      "note": "Custom printer — the user will supply its OrcaSlicer profiles at home. Until then slicing for it is unavailable; say so and offer core_one/qidi_max3 instead."
+    }
+  }
+}

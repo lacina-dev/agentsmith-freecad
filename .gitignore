@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+
+# Runtime data the bridge/agents create next to models and in project dirs
+.agentsmith/
+.codex-freecad/
+.freecad-checkpoints/
+.freecad-history/
+
+# Eval outputs (machine-local results, e2e sandboxes and logs)
+eval/results/
+
+# FreeCAD backups and generated outputs
+*.FCBak
+*.FCStd1
+*.gcode
+
+# OrcaSlicer CLI droppings (older slice_check versions wrote these into CWD)
+00000.log
+result.json
+
+# Local attic of pre-repo relics — delete when no longer needed
+_attic/

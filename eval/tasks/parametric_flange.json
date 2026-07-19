@@ -1,0 +1,17 @@
+{
+  "id": "parametric_flange",
+  "title": "Parametric circular flange",
+  "prompt": "Model a circular flange: OuterDia 80 mm, BoreDia 30 mm, Thickness 8 mm, with 6 bolt holes of 6 mm diameter evenly spaced on a 60 mm bolt circle. Every dimension must be driven by a Parameters spreadsheet so the flange can be resized parametrically.",
+  "checks": {
+    "validate": true,
+    "watertight": true,
+    "single_solid": true,
+    "dimensions": [
+      {"name": "outer_diameter", "source": "bbox", "axis": "x", "expected": 80.0, "tol": 0.3},
+      {"name": "thickness", "source": "bbox", "axis": "z", "expected": 8.0, "tol": 0.2},
+      {"name": "OuterDia", "source": "alias", "alias": "OuterDia", "expected": 80.0, "tol": 0.01},
+      {"name": "BoreDia", "source": "alias", "alias": "BoreDia", "expected": 30.0, "tol": 0.01}
+    ],
+    "parametric_probe": {"alias": "OuterDia", "delta": 5.0}
+  }
+}

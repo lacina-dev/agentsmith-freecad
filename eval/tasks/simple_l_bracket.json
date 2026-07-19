@@ -1,0 +1,16 @@
+{
+  "id": "simple_l_bracket",
+  "title": "Simple L bracket",
+  "prompt": "Model a simple L-shaped mounting bracket: two arms, each 40 mm long and 40 mm tall, 3 mm wall thickness, overall length 60 mm along the base, with a 5 mm mounting hole centered in each arm. Drive WallThickness and the hole diameter from a Parameters spreadsheet.",
+  "checks": {
+    "validate": true,
+    "watertight": true,
+    "single_solid": true,
+    "dimensions": [
+      {"name": "overall_length", "source": "bbox", "axis": "x", "expected": 60.0, "tol": 0.3},
+      {"name": "overall_height", "source": "bbox", "axis": "z", "expected": 40.0, "tol": 0.3},
+      {"name": "WallThickness", "source": "alias", "alias": "WallThickness", "expected": 3.0, "tol": 0.02}
+    ],
+    "parametric_probe": {"alias": "WallThickness", "delta": 1.0}
+  }
+}

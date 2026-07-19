@@ -1,0 +1,17 @@
+{
+  "id": "snap_fit_box",
+  "title": "Two-part snap-fit enclosure (FDM)",
+  "prompt": "Model a two-part snap-fit enclosure for FDM: base box 60x40x25 mm outer, 2 mm walls, and a lid that closes with two cantilever snap-fits on the long sides. Parts must be separate solids side by side on the plate, with 0.25 mm clearance on the lid lip. Drive wall thickness (WallT=2), clearance (Clearance=0.25) and outer size from a Parameters spreadsheet.",
+  "checks": {
+    "validate": true,
+    "watertight": true,
+    "solid_count": {"expected": 2},
+    "dimensions": [
+      {"name": "outer_length", "source": "bbox", "axis": "x", "expected": 60.0, "tol": 0.5, "comment": "PRAGMATIC: with two parts laid side-by-side on the plate, the overall bbox max/min axes span BOTH parts and cannot isolate one part's 60 mm length. We read the overall bbox X extent and assume both parts keep their 60 mm length along X and are spread apart along Y/Z (the natural print layout). Not fully orientation-agnostic; see eval/README.md."},
+      {"name": "WallT", "source": "alias", "alias": "WallT", "expected": 2.0, "tol": 0.01},
+      {"name": "Clearance", "source": "alias", "alias": "Clearance", "expected": 0.25, "tol": 0.01}
+    ],
+    "parametric_probe": {"alias": "WallT", "delta": 0.5},
+    "print_readiness": {"up_axis": "z", "overhang_deg": 45.0, "max_overhang_area_pct": 25.0}
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "id": "printed_wall_hook",
+  "title": "J-shaped wall hook (FDM)",
+  "prompt": "Model a small J-shaped wall-mount hook for FDM 3D printing: a flat wall-mounting plate with two screw holes, a vertical arm, and a curved J-shaped lip at the top that catches a strap or bag handle rated for about 5 kg. Design it to be printed flat on its side (so the load-bearing arm prints along the strong layer-bonding direction) with at least 3 perimeters/shells for strength, and chamfer the bottom edges so it doesn't snag stray threads. Overall height about 120 mm. Drive the plate/arm thickness from a WallT parameter (8 mm) in a Parameters spreadsheet.",
+  "checks": {
+    "validate": true,
+    "watertight": true,
+    "single_solid": true,
+    "dimensions": [
+      {"name": "overall_height", "source": "bbox", "axis": "max", "expected": 120.0, "tol": 2.0},
+      {"name": "WallT", "source": "alias", "alias": "WallT", "expected": 8.0, "tol": 0.1}
+    ],
+    "parametric_probe": {"alias": "WallT", "delta": 1.0},
+    "print_readiness": {"up_axis": "z", "overhang_deg": 45.0, "max_overhang_area_pct": 15.0, "min_feature_mm": 3.0}
+  }
+}

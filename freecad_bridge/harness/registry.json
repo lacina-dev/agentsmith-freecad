@@ -1,0 +1,118 @@
+{
+  "version": 6,
+  "comment": "Modeling harness library. 'core.md' is always prepended. EVERY file in 'playbooks' is ALWAYS provided to the backend; there is no exclusive mode. The agent applies each playbook whose 'trigger' matches the part's character or how it will be used, and ignores the ones that don't apply. To extend the harness, drop a <id>.md file into this directory and add an entry below with a short 'trigger'. 'lessons.md' is always included: it carries distilled rules from real failed/rejected tasks — append an entry there after every such failure, and promote matured rules into the right playbook.",
+  "always_include": [
+    "core.md",
+    "lessons.md"
+  ],
+  "playbooks": [
+    {
+      "id": "parametrics",
+      "label": "Parametrická robustnost",
+      "file": "parametrics.md",
+      "trigger": "always — every model must stay a robust, editable, single watertight parametric solid"
+    },
+    {
+      "id": "verify",
+      "label": "Kontrola kvality (QA)",
+      "file": "verify.md",
+      "trigger": "always — run the QA checklist before declaring the task done"
+    },
+    {
+      "id": "model",
+      "label": "Modelování nového tvaru",
+      "file": "model.md",
+      "trigger": "you are turning a description into new geometry"
+    },
+    {
+      "id": "fix",
+      "label": "Oprava / doladění",
+      "file": "fix.md",
+      "trigger": "you are correcting a defect in an existing model"
+    },
+    {
+      "id": "research",
+      "label": "Rešerše rozměrů",
+      "file": "research.md",
+      "trigger": "the spec references a real object/standard whose dimensions must be looked up"
+    },
+    {
+      "id": "reference",
+      "label": "Rešerše tvaru a funkce",
+      "file": "reference.md",
+      "trigger": "the request names a real-world object/product/mechanism whose shape/function should be grounded in references (proportions, topology, functional interfaces) — distinct from research, which grounds dimensions"
+    },
+    {
+      "id": "patterns",
+      "label": "Knihovna vzorů",
+      "file": "patterns.md",
+      "trigger": "the part uses a recurring mechanical feature (threaded boss, snap-fit, rib/gusset, heat-set insert, hinge clearance, screw counterbore) — index of on-demand micro-recipes under patterns/"
+    },
+    {
+      "id": "print3d",
+      "label": "3D tisk (FDM/FFF)",
+      "file": "print3d.md",
+      "trigger": "the part will be 3D printed by filament — design it support-minimal"
+    },
+    {
+      "id": "manufacture",
+      "label": "Výroba (slice / tisk)",
+      "file": "manufacture.md",
+      "trigger": "the request asks to slice, print, or send the model to a printer ('naslicuj', 'vytiskni', 'pošli na tiskárnu'), alone or combined with modeling in one request"
+    },
+    {
+      "id": "materials",
+      "label": "Materiály",
+      "file": "materials.md",
+      "trigger": "always when the part will be manufactured — pick and state the material early; mandatory for 3D-printed or load-bearing parts"
+    },
+    {
+      "id": "mechanics",
+      "label": "Mechanika / dimenzování",
+      "file": "mechanics.md",
+      "trigger": "the part carries load, transmits force/torque, or deflects — size it with numbers, not vibes"
+    },
+    {
+      "id": "strength",
+      "label": "Pevnostní návrh",
+      "file": "strength.md",
+      "trigger": "the part carries structural or dynamic load and must be strong enough"
+    },
+    {
+      "id": "tolerances",
+      "label": "Tolerance / uložení",
+      "file": "tolerances.md",
+      "trigger": "parts must fit together or a functional dimension must hold a tolerance"
+    },
+    {
+      "id": "assembly",
+      "label": "Sestava / rozhraní dílů",
+      "file": "assembly.md",
+      "trigger": "the design has multiple parts that must fit, move or mate"
+    },
+    {
+      "id": "fasteners",
+      "label": "Spojovací prvky / závity",
+      "file": "fasteners.md",
+      "trigger": "the design uses screws, threads, inserts, bosses or snap-fits"
+    },
+    {
+      "id": "enclosures",
+      "label": "Krabičky / kryty",
+      "file": "enclosures.md",
+      "trigger": "the part is a housing, box or enclosure"
+    },
+    {
+      "id": "molding",
+      "label": "Vstřikování (DfM)",
+      "file": "molding.md",
+      "trigger": "the part will be injection moulded"
+    },
+    {
+      "id": "sheetmetal",
+      "label": "Plech",
+      "file": "sheetmetal.md",
+      "trigger": "the part is made from bent sheet metal"
+    }
+  ]
+}

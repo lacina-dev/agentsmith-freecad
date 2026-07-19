@@ -1,0 +1,1 @@
+"""FreeCAD AgentSmith application module."""

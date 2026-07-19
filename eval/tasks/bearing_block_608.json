@@ -1,0 +1,17 @@
+{
+  "id": "bearing_block_608",
+  "title": "608 bearing pillow block",
+  "prompt": "Model a pillow-block holder for a standard 608 bearing (22 mm OD x 8 mm bore x 7 mm wide): a press-fit bore sized slightly undersize for a light interference fit, a seat at least 8 mm wide (along the bearing axis) to fully support the bearing's 7 mm width, and a flat mounting base with two M5 clearance holes. Drive the bore diameter from a BearingOD parameter (nominal 22 mm, modeled undersized for a press fit) and the mounting-hole diameter from a BoltDia parameter (5.5 mm) via a Parameters spreadsheet.",
+  "checks": {
+    "validate": true,
+    "watertight": true,
+    "single_solid": true,
+    "dimensions": [
+      {"name": "bore_diameter", "source": "alias", "alias": "BearingOD", "expected": 21.9, "tol": 0.1},
+      {"name": "seat_width", "source": "bbox", "axis": "y", "expected": 10.0, "tol": 3.0},
+      {"name": "BoltDia", "source": "alias", "alias": "BoltDia", "expected": 5.5, "tol": 0.05}
+    ],
+    "parametric_probe": {"alias": "BearingOD", "delta": 0.5},
+    "print_readiness": {"up_axis": "z", "overhang_deg": 45.0, "max_overhang_area_pct": 20.0}
+  }
+}

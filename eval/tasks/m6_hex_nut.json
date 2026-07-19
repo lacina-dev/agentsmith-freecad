@@ -1,0 +1,16 @@
+{
+  "id": "m6_hex_nut",
+  "title": "M6 hex nut",
+  "prompt": "Model an M6 hex nut: 10 mm across-flats hex profile, 5 mm thick, with an M6 through-hole (a 6.0 mm clearance hole is acceptable if real threads aren't modeled) and a small chamfer on both faces. Drive AcrossFlats, Thickness and HoleDiameter from a Parameters spreadsheet.",
+  "checks": {
+    "validate": true,
+    "watertight": true,
+    "single_solid": true,
+    "dimensions": [
+      {"name": "across_flats", "source": "bbox", "axis": "x", "expected": 10.0, "tol": 0.3},
+      {"name": "thickness", "source": "bbox", "axis": "z", "expected": 5.0, "tol": 0.2},
+      {"name": "HoleDiameter", "source": "alias", "alias": "HoleDiameter", "expected": 6.0, "tol": 0.05}
+    ],
+    "parametric_probe": {"alias": "AcrossFlats", "delta": 2.0}
+  }
+}
