@@ -2,7 +2,7 @@
 <package format="1" xmlns="https://wiki.freecad.org/Package_Metadata">
   <name>AgentSmith</name>
   <description>AI modeling agent for FreeCAD: a supervised local bridge plus chat panel that lets an AI backend (Codex / Claude Code / Copilot) design and edit parametric models in the open document — with an engineering-knowledge harness, reference images, printability checks and an independent review pass.</description>
-  <version>0.17.0</version>
+  <version>0.18.1</version>
   <date>2026-07-19</date>
   <maintainer email="robert@lacina.dev">Robert Lacina</maintainer>
   <license file="LICENSE">MIT</license>

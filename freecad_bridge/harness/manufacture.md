@@ -51,6 +51,18 @@ vytiskni". These are legitimate tasks even when they change no geometry.
 3. Reachable: upload with `--send`; use `--start` only when the user asked to
    actually print (they did if they said "vytiskni"). Report the printer's
    response.
+4. **Check the machine against the G-code before starting.** `--send` prints a
+   pre-flight line comparing the nozzle diameter and filament type baked into
+   the G-code with what the printer reports, and refuses `--start` on a
+   mismatch. Read that line — and compare BOTH values against what the user
+   asked for in the original prompt as well ("vytiskni to z PETG" with PLA in
+   the machine is a mismatch the printer cannot detect). On any disagreement,
+   stop and ask; do not reach for `--force`. If the pre-flight says a value
+   could not be verified, report that as unverified, never as agreement.
+   The pre-flight cannot see the **bed**: no printer API reports whether the
+   previous part is still on it, and a finished print left under the probe stops
+   a start as surely as a wrong nozzle. Before starting a print remotely, have
+   the user confirm the bed is clear.
 
 ## Combined tasks ("udělej model a rovnou ho vytiskni")
 

@@ -16,6 +16,14 @@ process's achievable precision. Values are typical; confirm against the process.
 - **Clearance / free-running (e.g. H7/g6):** parts move freely (shaft in bearing).
 - **Location / slip (H7/h6):** precise location, easy assembly, negligible play.
 - **Interference / press (H7/p6):** permanent press-fit; needs force to assemble.
+  Before you write any number: say out loud which part is the nominal one and which
+  one adapts to it. **Never put the mating part's nominal size into your model.** A
+  608 bearing is 22 mm, so a press-fit seat is *not* 22 mm — derive the hole from
+  `BearingOD - 2*Interference` as a spreadsheet expression and measure the result.
+  (An earlier version of this note called that "the most repeated fit mistake here",
+  citing three failed eval runs. Those runs were fine — the check was reading the
+  bearing's own diameter. The advice below stands on its own; the evidence for it
+  did not.)
 - Apply the tolerance to whichever member you control; keep the other at the basic
   size. For a 20 mm nominal, H7 hole ≈ +0.000/+0.021 mm as a sense of scale.
 

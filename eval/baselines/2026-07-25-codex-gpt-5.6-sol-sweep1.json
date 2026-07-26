@@ -1,0 +1,663 @@
+[
+  {
+    "task_id": "bearing_block_608",
+    "run_index": 1,
+    "title": "608 bearing pillow block",
+    "backend": "codex",
+    "model": "gpt-5.6-sol",
+    "log_path": "/home/robert/Projects/3dTest/eval/results/e2e-logs/bearing_block_608.log",
+    "doc_name": "e2e_bearing_block_608",
+    "fcstd_path": "/tmp/claude-1001/-home-robert-Projects-3dTest/65177332-883f-4980-b178-1daabcf66c42/scratchpad/stage1/e2e_bearing_block_608.FCStd",
+    "backend_exit_code": 0,
+    "timed_out": false,
+    "wall_time_sec": 123.21,
+    "grade": {
+      "task_id": "bearing_block_608",
+      "title": "608 bearing pillow block",
+      "prompt": "Model a pillow-block holder for a standard 608 bearing (22 mm OD x 8 mm bore x 7 mm wide): a press-fit bore sized slightly undersize for a light interference fit, a seat at least 8 mm wide (along the bearing axis) to fully support the bearing's 7 mm width, and a flat mounting base with two M5 clearance holes. Drive the bore diameter from a BearingOD parameter (nominal 22 mm, modeled undersized for a press fit) and the mounting-hole diameter from a BoltDia parameter (5.5 mm) via a Parameters spreadsheet.",
+      "results": [
+        {
+          "check": "validate",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": ""
+        },
+        {
+          "check": "watertight",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": "Finished 608 Pillow Block: valid=True closed=True"
+        },
+        {
+          "check": "single_solid",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": "Finished 608 Pillow Block: solids=1"
+        },
+        {
+          "check": "bore_diameter",
+          "status": "fail",
+          "expected": 21.9,
+          "actual": 22.0,
+          "note": "spreadsheet alias=BearingOD; diff=0.1 (tol=0.1)"
+        },
+        {
+          "check": "seat_width",
+          "status": "fail",
+          "expected": 10.0,
+          "actual": 30.0,
+          "note": "bbox size, axis=y, object=<overall model>; diff=20 (tol=3)"
+        },
+        {
+          "check": "BoltDia",
+          "status": "pass",
+          "expected": 5.5,
+          "actual": 5.5,
+          "note": "spreadsheet alias=BoltDia; diff=0 (tol=0.05)"
+        },
+        {
+          "check": "parametric_probe(BearingOD)",
+          "status": "pass",
+          "expected": "validate.ok after +0.5",
+          "actual": true,
+          "note": "set BearingOD: 22.0 -> 22.5, then validate.ok=True"
+        },
+        {
+          "check": "print_readiness",
+          "status": "pass",
+          "expected": {
+            "max_overhang_area_pct": 20.0
+          },
+          "actual": {
+            "overhang_area_pct": 0.0,
+            "min_bbox_dim": 30.0,
+            "objects_graded": 1,
+            "objects_errored": 0
+          },
+          "note": "1 object(s) graded; overhang_area_pct=0% (max 20%)"
+        },
+        {
+          "check": "functional_hole_axes",
+          "status": "pass",
+          "expected": {
+            "mounting_axis": "z",
+            "tol_deg": 10.0,
+            "min_hole_count": 2,
+            "min_hole_dia_mm": 4.0,
+            "min_hole_angle_deg": 240.0,
+            "max_hole_dia_mm": 8.0
+          },
+          "actual": {
+            "holes_found": 2,
+            "misaligned": 0
+          },
+          "note": "2 hole(s) within 10 deg of the z axis"
+        }
+      ],
+      "passed_count": 7,
+      "failed_count": 2,
+      "error_count": 0,
+      "skipped_count": 0,
+      "total_count": 9,
+      "graded_count": 9,
+      "all_passed": false
+    },
+    "error": null
+  },
+  {
+    "task_id": "m6_hex_nut",
+    "run_index": 1,
+    "title": "M6 hex nut",
+    "backend": "codex",
+    "model": "gpt-5.6-sol",
+    "log_path": "/home/robert/Projects/3dTest/eval/results/e2e-logs/m6_hex_nut.log",
+    "doc_name": "e2e_m6_hex_nut",
+    "fcstd_path": "/tmp/claude-1001/-home-robert-Projects-3dTest/65177332-883f-4980-b178-1daabcf66c42/scratchpad/stage1/e2e_m6_hex_nut.FCStd",
+    "backend_exit_code": 0,
+    "timed_out": false,
+    "wall_time_sec": 139.67,
+    "grade": {
+      "task_id": "m6_hex_nut",
+      "title": "M6 hex nut",
+      "prompt": "Model an M6 hex nut: 10 mm across-flats hex profile, 5 mm thick, with an M6 through-hole (a 6.0 mm clearance hole is acceptable if real threads aren't modeled) and a small chamfer on both faces. Drive AcrossFlats, Thickness and HoleDiameter from a Parameters spreadsheet.",
+      "results": [
+        {
+          "check": "validate",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": ""
+        },
+        {
+          "check": "watertight",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": "M6 Hex Nut — Chamfered: valid=True closed=True"
+        },
+        {
+          "check": "single_solid",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": "M6 Hex Nut — Chamfered: solids=1"
+        },
+        {
+          "check": "across_flats",
+          "status": "pass",
+          "expected": 10.0,
+          "actual": 10.000000000000002,
+          "note": "bbox size, axis=x, object=<overall model>; diff=1.77636e-15 (tol=0.3)"
+        },
+        {
+          "check": "thickness",
+          "status": "pass",
+          "expected": 5.0,
+          "actual": 5.0,
+          "note": "bbox size, axis=z, object=<overall model>; diff=0 (tol=0.2)"
+        },
+        {
+          "check": "HoleDiameter",
+          "status": "pass",
+          "expected": 6.0,
+          "actual": 6.0,
+          "note": "spreadsheet alias=HoleDiameter; diff=0 (tol=0.05)"
+        },
+        {
+          "check": "parametric_probe(AcrossFlats)",
+          "status": "pass",
+          "expected": "validate.ok after +2.0",
+          "actual": true,
+          "note": "set AcrossFlats: 10.0 -> 12.0, then validate.ok=True"
+        }
+      ],
+      "passed_count": 7,
+      "failed_count": 0,
+      "error_count": 0,
+      "skipped_count": 0,
+      "total_count": 7,
+      "graded_count": 7,
+      "all_passed": true
+    },
+    "error": null
+  },
+  {
+    "task_id": "parametric_flange",
+    "run_index": 1,
+    "title": "Parametric circular flange",
+    "backend": "codex",
+    "model": "gpt-5.6-sol",
+    "log_path": "/home/robert/Projects/3dTest/eval/results/e2e-logs/parametric_flange.log",
+    "doc_name": "e2e_parametric_flange",
+    "fcstd_path": "/tmp/claude-1001/-home-robert-Projects-3dTest/65177332-883f-4980-b178-1daabcf66c42/scratchpad/stage1/e2e_parametric_flange.FCStd",
+    "backend_exit_code": 0,
+    "timed_out": false,
+    "wall_time_sec": 87.33,
+    "grade": {
+      "task_id": "parametric_flange",
+      "title": "Parametric circular flange",
+      "prompt": "Model a circular flange: OuterDia 80 mm, BoreDia 30 mm, Thickness 8 mm, with 6 bolt holes of 6 mm diameter evenly spaced on a 60 mm bolt circle. Every dimension must be driven by a Parameters spreadsheet so the flange can be resized parametrically.",
+      "results": [
+        {
+          "check": "validate",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": ""
+        },
+        {
+          "check": "watertight",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": "Parametric 6-Bolt Flange: valid=True closed=True"
+        },
+        {
+          "check": "single_solid",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": "Parametric 6-Bolt Flange: solids=1"
+        },
+        {
+          "check": "outer_diameter",
+          "status": "pass",
+          "expected": 80.0,
+          "actual": 80.0,
+          "note": "bbox size, axis=x, object=<overall model>; diff=0 (tol=0.3)"
+        },
+        {
+          "check": "thickness",
+          "status": "pass",
+          "expected": 8.0,
+          "actual": 8.0,
+          "note": "bbox size, axis=z, object=<overall model>; diff=0 (tol=0.2)"
+        },
+        {
+          "check": "OuterDia",
+          "status": "pass",
+          "expected": 80.0,
+          "actual": 80.0,
+          "note": "spreadsheet alias=OuterDia; diff=0 (tol=0.01)"
+        },
+        {
+          "check": "BoreDia",
+          "status": "pass",
+          "expected": 30.0,
+          "actual": 30.0,
+          "note": "spreadsheet alias=BoreDia; diff=0 (tol=0.01)"
+        },
+        {
+          "check": "parametric_probe(OuterDia)",
+          "status": "pass",
+          "expected": "validate.ok after +5.0",
+          "actual": true,
+          "note": "set OuterDia: 80.0 -> 85.0, then validate.ok=True"
+        }
+      ],
+      "passed_count": 8,
+      "failed_count": 0,
+      "error_count": 0,
+      "skipped_count": 0,
+      "total_count": 8,
+      "graded_count": 8,
+      "all_passed": true
+    },
+    "error": null
+  },
+  {
+    "task_id": "pi5_enclosure_base",
+    "run_index": 1,
+    "title": "Raspberry Pi 5 enclosure base tray",
+    "backend": "codex",
+    "model": "gpt-5.6-sol",
+    "log_path": "/home/robert/Projects/3dTest/eval/results/e2e-logs/pi5_enclosure_base.log",
+    "doc_name": "e2e_pi5_enclosure_base",
+    "fcstd_path": "/tmp/claude-1001/-home-robert-Projects-3dTest/65177332-883f-4980-b178-1daabcf66c42/scratchpad/stage1/e2e_pi5_enclosure_base.FCStd",
+    "backend_exit_code": 0,
+    "timed_out": false,
+    "wall_time_sec": 140.67,
+    "grade": {
+      "task_id": "pi5_enclosure_base",
+      "title": "Raspberry Pi 5 enclosure base tray",
+      "prompt": "Model the base tray of an enclosure for a Raspberry Pi 5: external footprint about 95 x 65 mm, 2 mm wall thickness, 2.5 mm floor thickness, with standoffs matching the Pi 5 mounting-hole pattern. Drive WallThickness and FloorThickness from a Parameters spreadsheet.",
+      "results": [
+        {
+          "check": "validate",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": ""
+        },
+        {
+          "check": "watertight",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": "Pi 5 Enclosure Base (PETG/FDM): valid=True closed=True"
+        },
+        {
+          "check": "single_solid",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": "Pi 5 Enclosure Base (PETG/FDM): solids=1"
+        },
+        {
+          "check": "footprint_x",
+          "status": "pass",
+          "expected": 95.0,
+          "actual": 95.0,
+          "note": "bbox size, axis=x, object=<overall model>; diff=0 (tol=1)"
+        },
+        {
+          "check": "footprint_y",
+          "status": "pass",
+          "expected": 65.0,
+          "actual": 65.0,
+          "note": "bbox size, axis=y, object=<overall model>; diff=0 (tol=1)"
+        },
+        {
+          "check": "WallThickness",
+          "status": "pass",
+          "expected": 2.0,
+          "actual": 2.0,
+          "note": "spreadsheet alias=WallThickness; diff=0 (tol=0.02)"
+        },
+        {
+          "check": "FloorThickness",
+          "status": "pass",
+          "expected": 2.5,
+          "actual": 2.5,
+          "note": "spreadsheet alias=FloorThickness; diff=0 (tol=0.02)"
+        },
+        {
+          "check": "parametric_probe(WallThickness)",
+          "status": "pass",
+          "expected": "validate.ok after +0.5",
+          "actual": true,
+          "note": "set WallThickness: 2.0 -> 2.5, then validate.ok=True"
+        },
+        {
+          "check": "functional_protrusion",
+          "status": "pass",
+          "expected": {
+            "axis": "auto",
+            "min_mm": 5.0
+          },
+          "actual": 15.0,
+          "note": "stands off the normal of the largest flat face (6175 mm2) by 15 mm (need >= 5 mm)"
+        }
+      ],
+      "passed_count": 9,
+      "failed_count": 0,
+      "error_count": 0,
+      "skipped_count": 0,
+      "total_count": 9,
+      "graded_count": 9,
+      "all_passed": true
+    },
+    "error": null
+  },
+  {
+    "task_id": "printed_wall_hook",
+    "run_index": 1,
+    "title": "J-shaped wall hook (FDM)",
+    "backend": "codex",
+    "model": "gpt-5.6-sol",
+    "log_path": "/home/robert/Projects/3dTest/eval/results/e2e-logs/printed_wall_hook.log",
+    "doc_name": "e2e_printed_wall_hook",
+    "fcstd_path": "/tmp/claude-1001/-home-robert-Projects-3dTest/65177332-883f-4980-b178-1daabcf66c42/scratchpad/stage1/e2e_printed_wall_hook.FCStd",
+    "backend_exit_code": 0,
+    "timed_out": false,
+    "wall_time_sec": 155.49,
+    "grade": {
+      "task_id": "printed_wall_hook",
+      "title": "J-shaped wall hook (FDM)",
+      "prompt": "Model a small J-shaped wall-mount hook for FDM 3D printing: a flat wall-mounting plate with two screw holes, a vertical arm, and a curved J-shaped lip at the top that catches a strap or bag handle rated for about 5 kg. Design it to be printed flat on its side (so the load-bearing arm prints along the strong layer-bonding direction) with at least 3 perimeters/shells for strength, and chamfer the bottom edges so it doesn't snag stray threads. Overall height about 120 mm. Drive the plate/arm thickness from a WallT parameter (8 mm) in a Parameters spreadsheet.",
+      "results": [
+        {
+          "check": "validate",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": ""
+        },
+        {
+          "check": "watertight",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": "Printed Wall Hook (PETG): valid=True closed=True"
+        },
+        {
+          "check": "single_solid",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": "Printed Wall Hook (PETG): solids=1"
+        },
+        {
+          "check": "overall_height",
+          "status": "pass",
+          "expected": 120.0,
+          "actual": 120.0,
+          "note": "bbox size, axis=max, object=<overall model>; diff=0 (tol=2)"
+        },
+        {
+          "check": "WallT",
+          "status": "pass",
+          "expected": 8.0,
+          "actual": 8.0,
+          "note": "spreadsheet alias=WallT; diff=0 (tol=0.1)"
+        },
+        {
+          "check": "parametric_probe(WallT)",
+          "status": "pass",
+          "expected": "validate.ok after +1.0",
+          "actual": true,
+          "note": "set WallT: 8.0 -> 9.0, then validate.ok=True"
+        },
+        {
+          "check": "print_readiness",
+          "status": "pass",
+          "expected": {
+            "max_overhang_area_pct": 15.0,
+            "min_feature_mm": 3.0
+          },
+          "actual": {
+            "overhang_area_pct": 6.4799,
+            "min_bbox_dim": 32.0,
+            "objects_graded": 1,
+            "objects_errored": 0
+          },
+          "note": "1 object(s) graded; overhang_area_pct=6.48% (max 15%); min_bbox_dim=32 (required >= 3)"
+        },
+        {
+          "check": "functional_hole_axes",
+          "status": "pass",
+          "expected": {
+            "mounting_axis": "auto",
+            "tol_deg": 10.0,
+            "min_hole_count": 2,
+            "min_hole_dia_mm": 3.0,
+            "min_hole_angle_deg": 240.0
+          },
+          "actual": {
+            "holes_found": 2,
+            "misaligned": 0
+          },
+          "note": "2 hole(s) within 10 deg of the normal of the largest flat face (3728 mm2)"
+        },
+        {
+          "check": "functional_protrusion",
+          "status": "pass",
+          "expected": {
+            "axis": "auto",
+            "min_mm": 25.0
+          },
+          "actual": 36.0,
+          "note": "stands off the normal of the largest flat face (3728 mm2) by 36 mm (need >= 25 mm)"
+        },
+        {
+          "check": "functional_slab_ratio",
+          "status": "pass",
+          "expected": {
+            "min_ratio": 0.15
+          },
+          "actual": 0.2667,
+          "note": "thinnest/largest bbox dimension = 0.2667 (need >= 0.15)"
+        }
+      ],
+      "passed_count": 10,
+      "failed_count": 0,
+      "error_count": 0,
+      "skipped_count": 0,
+      "total_count": 10,
+      "graded_count": 10,
+      "all_passed": true
+    },
+    "error": null
+  },
+  {
+    "task_id": "simple_l_bracket",
+    "run_index": 1,
+    "title": "Simple L bracket",
+    "backend": "codex",
+    "model": "gpt-5.6-sol",
+    "log_path": "/home/robert/Projects/3dTest/eval/results/e2e-logs/simple_l_bracket.log",
+    "doc_name": "e2e_simple_l_bracket",
+    "fcstd_path": "/tmp/claude-1001/-home-robert-Projects-3dTest/65177332-883f-4980-b178-1daabcf66c42/scratchpad/stage1/e2e_simple_l_bracket.FCStd",
+    "backend_exit_code": 0,
+    "timed_out": false,
+    "wall_time_sec": 98.93,
+    "grade": {
+      "task_id": "simple_l_bracket",
+      "title": "Simple L bracket",
+      "prompt": "Model a simple L-shaped mounting bracket: two arms, each 40 mm long and 40 mm tall, 3 mm wall thickness, overall length 60 mm along the base, with a 5 mm mounting hole centered in each arm. Drive WallThickness and the hole diameter from a Parameters spreadsheet.",
+      "results": [
+        {
+          "check": "validate",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": ""
+        },
+        {
+          "check": "watertight",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": "Simple L Mounting Bracket: valid=True closed=True"
+        },
+        {
+          "check": "single_solid",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": "Simple L Mounting Bracket: solids=1"
+        },
+        {
+          "check": "overall_length",
+          "status": "pass",
+          "expected": 60.0,
+          "actual": 60.0,
+          "note": "bbox size, axis=x, object=<overall model>; diff=0 (tol=0.3)"
+        },
+        {
+          "check": "overall_height",
+          "status": "pass",
+          "expected": 40.0,
+          "actual": 40.0,
+          "note": "bbox size, axis=z, object=<overall model>; diff=0 (tol=0.3)"
+        },
+        {
+          "check": "WallThickness",
+          "status": "pass",
+          "expected": 3.0,
+          "actual": 3.0,
+          "note": "spreadsheet alias=WallThickness; diff=0 (tol=0.02)"
+        },
+        {
+          "check": "parametric_probe(WallThickness)",
+          "status": "pass",
+          "expected": "validate.ok after +1.0",
+          "actual": true,
+          "note": "set WallThickness: 3.0 -> 4.0, then validate.ok=True"
+        },
+        {
+          "check": "functional_protrusion",
+          "status": "pass",
+          "expected": {
+            "axis": "auto",
+            "min_mm": 30.0
+          },
+          "actual": 40.0,
+          "note": "stands off the normal of the largest flat face (2380 mm2) by 40 mm (need >= 30 mm)"
+        }
+      ],
+      "passed_count": 8,
+      "failed_count": 0,
+      "error_count": 0,
+      "skipped_count": 0,
+      "total_count": 8,
+      "graded_count": 8,
+      "all_passed": true
+    },
+    "error": null
+  },
+  {
+    "task_id": "snap_fit_box",
+    "run_index": 1,
+    "title": "Two-part snap-fit enclosure (FDM)",
+    "backend": "codex",
+    "model": "gpt-5.6-sol",
+    "log_path": "/home/robert/Projects/3dTest/eval/results/e2e-logs/snap_fit_box.log",
+    "doc_name": "e2e_snap_fit_box",
+    "fcstd_path": "/tmp/claude-1001/-home-robert-Projects-3dTest/65177332-883f-4980-b178-1daabcf66c42/scratchpad/stage1/e2e_snap_fit_box.FCStd",
+    "backend_exit_code": 0,
+    "timed_out": false,
+    "wall_time_sec": 121.57,
+    "grade": {
+      "task_id": "snap_fit_box",
+      "title": "Two-part snap-fit enclosure (FDM)",
+      "prompt": "Model a two-part snap-fit enclosure for FDM: base box 60x40x25 mm outer, 2 mm walls, and a lid that closes with two cantilever snap-fits on the long sides. Parts must be separate solids side by side on the plate, with 0.25 mm clearance on the lid lip. Drive wall thickness (WallT=2), clearance (Clearance=0.25) and outer size from a Parameters spreadsheet.",
+      "results": [
+        {
+          "check": "validate",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": ""
+        },
+        {
+          "check": "watertight",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": "Base - Snap Fit Enclosure: valid=True closed=True; Lid - Lip and Cantilever Snaps: valid=True closed=True"
+        },
+        {
+          "check": "solid_count",
+          "status": "pass",
+          "expected": 2,
+          "actual": 2,
+          "note": "2 of 2 visible object(s) contain >=1 solid (Base - Snap Fit Enclosure: solids=1; Lid - Lip and Cantilever Snaps: solids=1)"
+        },
+        {
+          "check": "outer_length",
+          "status": "fail",
+          "expected": 60.0,
+          "actual": 130.0,
+          "note": "bbox size, axis=x, object=<overall model>; diff=70 (tol=0.5)"
+        },
+        {
+          "check": "WallT",
+          "status": "pass",
+          "expected": 2.0,
+          "actual": 2.0,
+          "note": "spreadsheet alias=WallT; diff=0 (tol=0.01)"
+        },
+        {
+          "check": "Clearance",
+          "status": "pass",
+          "expected": 0.25,
+          "actual": 0.25,
+          "note": "spreadsheet alias=Clearance; diff=0 (tol=0.01)"
+        },
+        {
+          "check": "parametric_probe(WallT)",
+          "status": "pass",
+          "expected": "validate.ok after +0.5",
+          "actual": true,
+          "note": "set WallT: 2.0 -> 2.5, then validate.ok=True"
+        },
+        {
+          "check": "print_readiness",
+          "status": "pass",
+          "expected": {
+            "max_overhang_area_pct": 25.0
+          },
+          "actual": {
+            "overhang_area_pct": 0.2463,
+            "min_bbox_dim": 12.0,
+            "objects_graded": 2,
+            "objects_errored": 0
+          },
+          "note": "2 object(s) graded; overhang_area_pct=0.2463% (max 25%)"
+        }
+      ],
+      "passed_count": 7,
+      "failed_count": 1,
+      "error_count": 0,
+      "skipped_count": 0,
+      "total_count": 8,
+      "graded_count": 8,
+      "all_passed": false
+    },
+    "error": null
+  }
+]

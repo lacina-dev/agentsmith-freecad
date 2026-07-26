@@ -26,6 +26,7 @@ See eval/README.md for the task JSON schema and how to add new tasks.
 import argparse
 import glob
 import json
+import math
 import os
 import socket
 import sys
@@ -114,7 +115,11 @@ def _numeric_check(name, expected, actual, tol, note=""):
     except (TypeError, ValueError):
         return {"check": name, "status": "error", "expected": expected, "actual": actual,
                 "note": (note + "; " if note else "") + "measured value is not numeric"}
-    status = "pass" if diff <= tol else "fail"
+    # The rule is "within tol", so a value exactly AT the tolerance must pass. Binary
+    # floats disagree: abs(22.0 - 21.9) is 0.10000000000000142, which failed a
+    # tol=0.1 check on a model that was dimensionally fine (seen live). The epsilon
+    # is far below any real modelling tolerance and only absorbs representation noise.
+    status = "pass" if diff <= tol + 1e-9 else "fail"
     full_note = "diff=%.6g (tol=%.6g)" % (diff, tol)
     if note:
         full_note = note + "; " + full_note
@@ -309,6 +314,29 @@ def check_dimension(dim, digest_cache):
     except ValueError as exc:
         return _error_check(name, expected, str(exc))
 
+    # Some requirements are one-sided and a centred window misstates them. "A seat at
+    # least 8 mm wide" is a floor, not a target: a 30 mm seat satisfies the request but
+    # failed an `expected 10, tol 3` window (seen live). Likewise "sized undersize for
+    # a press fit" is a ceiling — a nominal 22.0 mm bore is not a press fit, yet it sits
+    # inside a +/-0.1 window around 21.9.
+    mode = str(dim.get("mode", "window")).lower()
+    if mode in ("min", "max"):
+        try:
+            measured_value = float(measured)
+            limit = float(expected)
+        except (TypeError, ValueError):
+            return {"check": name, "status": "error", "expected": expected,
+                    "actual": measured, "note": note + "; measured value is not numeric"}
+        ok = measured_value >= limit - 1e-9 if mode == "min" else measured_value <= limit + 1e-9
+        return {"check": name, "status": "pass" if ok else "fail",
+                "expected": {"mode": mode, "limit": limit}, "actual": measured_value,
+                "note": "%s; %s %.6g (required %s %.6g)" % (
+                    note, "measured" if ok else "measured", measured_value,
+                    ">=" if mode == "min" else "<=", limit)}
+    if mode != "window":
+        return _error_check(name, expected,
+                            "unknown dimension mode %r (expected 'window', 'min' or 'max')" % mode)
+
     return _numeric_check(name, expected, measured, tol, note)
 
 
@@ -468,6 +496,251 @@ def check_print_readiness(spec):
     return {"check": name, "status": status, "expected": expected, "actual": actual, "note": note}
 
 
+class ProbeCache:
+    """Fetches feature_probe at most once per task run and memoizes the outcome,
+    the same way DigestCache does for model_digest."""
+
+    def __init__(self):
+        self._fetched = False
+        self._probe = None
+        self._error = None
+
+    def get(self):
+        if not self._fetched:
+            self._fetched = True
+            try:
+                self._probe = bridge_call("feature_probe")
+            except BridgeCallError as exc:
+                self._error = str(exc)
+        if self._error is not None:
+            raise BridgeCallError(self._error)
+        return self._probe
+
+
+def _skipped_check(name, expected, command):
+    return {
+        "check": name,
+        "status": "skipped",
+        "expected": expected,
+        "actual": None,
+        "note": "bridge does not implement %r (older bridge build) — skipped, "
+                "not counted as a failure" % command,
+    }
+
+
+def _axis_vector(axis):
+    """'x'/'y'/'z' (optionally signed) as a unit vector. Sign is irrelevant to every
+    functional check here — an axis has an orientation, not a direction."""
+    letter = str(axis).lower().lstrip("+-")
+    index = {"x": 0, "y": 1, "z": 2}.get(letter)
+    if index is None:
+        raise ValueError("unknown axis %r (expected x, y or z)" % axis)
+    vector = [0.0, 0.0, 0.0]
+    vector[index] = 1.0
+    return vector, index
+
+
+def _angle_between_axes_deg(a, b):
+    """Angle between two undirected axes, in [0, 90]."""
+    dot = sum(x * y for x, y in zip(a, b))
+    norm_a = math.sqrt(sum(x * x for x in a))
+    norm_b = math.sqrt(sum(x * x for x in b))
+    if norm_a < 1e-9 or norm_b < 1e-9:
+        raise ValueError("degenerate axis vector")
+    cosine = max(-1.0, min(1.0, abs(dot) / (norm_a * norm_b)))
+    return math.degrees(math.acos(cosine))
+
+
+def _mounting_reference(spec, probe):
+    """Resolve the mounting plane the functional checks are measured against.
+
+    Returns (normal_vector, standoff_mm_or_None, description).
+
+    Default is `mounting_axis: "auto"`: take the largest planar face across the
+    graded objects as the mounting/contact surface and use its normal. This keeps
+    the checks orientation-agnostic, which matters because a golden task rarely
+    pins the model's pose in world space — printed_wall_hook is explicitly modelled
+    lying on its side for printing, so a check hard-coded to the Y axis would flag
+    a perfectly good part. A task that *does* pin the pose can still name an axis.
+    """
+    axis = str(spec.get("mounting_axis", "auto")).lower()
+    if axis != "auto":
+        vector, _index = _axis_vector(axis)
+        return vector, None, "the %s axis" % axis
+
+    best = None
+    for obj in (probe or {}).get("objects", []):
+        if obj.get("error"):
+            continue
+        plane = obj.get("largest_plane")
+        if plane and (best is None or plane.get("area_mm2", 0) > best.get("area_mm2", 0)):
+            best = plane
+    if not best:
+        raise ValueError("no planar face found to use as the mounting surface "
+                         "(set mounting_axis explicitly if the part has none)")
+    return (best["normal"], best.get("standoff_mm"),
+            "the normal of the largest flat face (%.4g mm2)" % best.get("area_mm2", 0.0))
+
+
+def check_functional(spec, digest_cache, probe_cache):
+    """Grade the 'functional' block: does the part physically work, not just measure?
+
+    Born from a real failure (harness lesson L1/L2): a wall hook scored 7/7 on
+    dimensions while being an unusable flat plate, because every check looked at
+    sizes and none looked at the functional pose. These checks are the mechanical
+    part of that judgement, so it no longer depends on an LLM reviewer noticing.
+
+    `mounting_axis` is the axis normal to the mounting/contact plane — for a part
+    screwed to a wall, the axis pointing away from the wall. Sub-checks:
+
+      * `hole_axis_tol_deg`  — fastener holes must be PARALLEL to that axis, i.e.
+        perpendicular to the mounting plane, or the screws cannot go in (lesson L1).
+      * `protrusion_mm`      — the part must extend at least this far along that
+        axis, or it is a flat lookalike built in the wrong projection (lesson L2).
+      * `min_slab_ratio`     — thinnest bbox dimension over the largest; a cheap,
+        pose-independent detector for the same flat-plate failure.
+
+    Each sub-check present in the spec produces its own scorecard row. Returns a
+    list of check dicts.
+    """
+    results = []
+    wanted = [key for key in ("hole_axis_tol_deg", "protrusion_mm", "min_slab_ratio")
+              if key in spec]
+    if not wanted:
+        return [_error_check("functional", spec,
+                             "no functional sub-check requested (expected at least one of "
+                             "hole_axis_tol_deg, protrusion_mm, min_slab_ratio)")]
+
+    # One probe call serves every sub-check; a bridge that predates feature_probe
+    # skips them all rather than failing the scorecard.
+    axis_vector = standoff = reference_note = None
+    probe_error = None
+    if "hole_axis_tol_deg" in spec or "protrusion_mm" in spec:
+        try:
+            probe = probe_cache.get()
+            axis_vector, standoff, reference_note = _mounting_reference(spec, probe)
+        except BridgeCallError as exc:
+            probe_error = ("skipped" if "unknown command" in str(exc).lower() else str(exc))
+        except ValueError as exc:
+            probe_error = str(exc)
+
+    if "hole_axis_tol_deg" in spec:
+        name = "functional_hole_axes"
+        tol_deg = float(spec["hole_axis_tol_deg"])
+        min_dia = float(spec.get("min_hole_dia_mm", 2.0))
+        max_dia = spec.get("max_hole_dia_mm")
+        min_count = int(spec.get("min_hole_count", 1))
+        # A fastener bore sweeps most of a circle; a curved lip, a rounded slot end
+        # or a filleted corner is concave too but sweeps far less. Both numbers below
+        # are measured, not guessed: a wall hook's J-curves came back at 90 deg, and
+        # its TEARDROP screw bores — the self-supporting shape the print3d playbook
+        # asks for — at exactly 270 deg. A threshold of 300 would have rejected the
+        # better design, so it sits at 240: clear of the lip, clear of the teardrop.
+        min_angle = float(spec.get("min_hole_angle_deg", 240.0))
+        expected = {"mounting_axis": spec.get("mounting_axis", "auto"), "tol_deg": tol_deg,
+                    "min_hole_count": min_count, "min_hole_dia_mm": min_dia,
+                    "min_hole_angle_deg": min_angle}
+        if max_dia is not None:
+            expected["max_hole_dia_mm"] = float(max_dia)
+        if probe_error == "skipped":
+            results.append(_skipped_check(name, expected, "feature_probe"))
+        elif probe_error:
+            results.append(_error_check(name, expected, probe_error))
+        else:
+            # A diameter window selects the fasteners specifically: a bearing block
+            # has a 22 mm bore whose axis is deliberately NOT perpendicular to the
+            # base, and grading it as a screw hole would be nonsense.
+            holes = [hole
+                     for obj in (probe or {}).get("objects", []) if not obj.get("error")
+                     for hole in obj.get("holes", [])
+                     if hole.get("kind") == "hole"
+                     and float(hole.get("diameter_mm", 0)) >= min_dia
+                     and (max_dia is None or float(hole.get("diameter_mm", 0)) <= float(max_dia))
+                     # angle_deg is absent on bridges older than 0.18.1; treat a
+                     # missing value as "full circle" so those still grade.
+                     and float(hole.get("angle_deg", 360.0)) >= min_angle]
+            misaligned = []
+            for hole in holes:
+                try:
+                    angle = _angle_between_axes_deg(hole["axis"], axis_vector)
+                except (ValueError, KeyError):
+                    continue
+                if angle > tol_deg:
+                    misaligned.append((round(float(hole.get("diameter_mm", 0)), 3), round(angle, 2)))
+            actual = {"holes_found": len(holes), "misaligned": len(misaligned)}
+            if len(holes) < min_count:
+                status = "fail"
+                note = ("only %d hole(s) of diameter >= %.4g mm found, need %d — "
+                        "fastener holes missing or modelled as something other than a bore"
+                        % (len(holes), min_dia, min_count))
+            elif misaligned:
+                status = "fail"
+                note = ("%d hole(s) not perpendicular to the mounting plane "
+                        "(dia mm, angle deg from %s): %s"
+                        % (len(misaligned), reference_note, misaligned))
+            else:
+                status = "pass"
+                note = "%d hole(s) within %.4g deg of %s" % (
+                    len(holes), tol_deg, reference_note)
+            results.append({"check": name, "status": status, "expected": expected,
+                            "actual": actual, "note": note})
+
+    if "protrusion_mm" in spec:
+        name = "functional_protrusion"
+        required = float(spec["protrusion_mm"])
+        expected = {"axis": spec.get("mounting_axis", "auto"), "min_mm": required}
+        extent = None
+        error = None
+        if probe_error == "skipped":
+            results.append(_skipped_check(name, expected, "feature_probe"))
+        elif probe_error:
+            results.append(_error_check(name, expected, probe_error))
+        else:
+            if standoff is not None:
+                # Auto mode: distance from the mounting face to the farthest point.
+                extent = float(standoff)
+            else:
+                # Explicit axis: the bounding-box extent along it is the same thing
+                # for an axis-aligned mounting plane.
+                try:
+                    index = axis_vector.index(1.0)
+                    extent = _bbox_size(digest_cache.get(), "xyz"[index], spec.get("object"))
+                except (BridgeCallError, ValueError) as exc:
+                    error = str(exc)
+            if error is not None:
+                results.append(_error_check(name, expected, error))
+            else:
+                status = "pass" if extent >= required else "fail"
+                note = ("stands off %s by %.4g mm (need >= %.4g mm)%s"
+                        % (reference_note, extent, required,
+                           "" if status == "pass" else
+                           " — the working feature does not stand off the mounting "
+                           "surface; likely built in the wrong projection plane"))
+                results.append({"check": name, "status": status, "expected": expected,
+                                "actual": round(extent, 4), "note": note})
+
+    if "min_slab_ratio" in spec:
+        name = "functional_slab_ratio"
+        required = float(spec["min_slab_ratio"])
+        expected = {"min_ratio": required}
+        try:
+            digest = digest_cache.get()
+            smallest = _bbox_size(digest, "min", spec.get("object"))
+            largest = _bbox_size(digest, "max", spec.get("object"))
+        except (BridgeCallError, ValueError) as exc:
+            results.append(_error_check(name, expected, str(exc)))
+        else:
+            ratio = (smallest / largest) if largest else 0.0
+            status = "pass" if ratio >= required else "fail"
+            note = "thinnest/largest bbox dimension = %.4g (need >= %.4g)%s" % (
+                ratio, required,
+                "" if status == "pass" else " — the part is a flat slab")
+            results.append({"check": name, "status": status, "expected": expected,
+                            "actual": round(ratio, 4), "note": note})
+
+    return results
+
+
 # --------------------------------------------------------------------------
 # Task grading + reporting
 # --------------------------------------------------------------------------
@@ -491,6 +764,11 @@ def grade_task(task):
 
     if "print_readiness" in checks:
         results.append(check_print_readiness(checks["print_readiness"]))
+
+    # Functional pose last: it is the check that decides whether a model that
+    # measures correctly can actually do its job (harness lessons L1/L2).
+    if "functional" in checks:
+        results.extend(check_functional(checks["functional"], digest_cache, ProbeCache()))
 
     passed = sum(1 for r in results if r["status"] == "pass")
     failed = sum(1 for r in results if r["status"] == "fail")

@@ -7,11 +7,43 @@
     "watertight": true,
     "single_solid": true,
     "dimensions": [
-      {"name": "footprint_x", "source": "bbox", "axis": "x", "expected": 95.0, "tol": 1.0},
-      {"name": "footprint_y", "source": "bbox", "axis": "y", "expected": 65.0, "tol": 1.0},
-      {"name": "WallThickness", "source": "alias", "alias": "WallThickness", "expected": 2.0, "tol": 0.02},
-      {"name": "FloorThickness", "source": "alias", "alias": "FloorThickness", "expected": 2.5, "tol": 0.02}
+      {
+        "name": "footprint_x",
+        "source": "bbox",
+        "axis": "x",
+        "expected": 95.0,
+        "tol": 1.0
+      },
+      {
+        "name": "footprint_y",
+        "source": "bbox",
+        "axis": "y",
+        "expected": 65.0,
+        "tol": 1.0
+      },
+      {
+        "name": "WallThickness",
+        "source": "alias",
+        "alias": "WallThickness",
+        "expected": 2.0,
+        "tol": 0.02
+      },
+      {
+        "name": "FloorThickness",
+        "source": "alias",
+        "alias": "FloorThickness",
+        "expected": 2.5,
+        "tol": 0.02
+      }
     ],
-    "parametric_probe": {"alias": "WallThickness", "delta": 0.5}
+    "parametric_probe": {
+      "alias": "WallThickness",
+      "delta": 0.5
+    },
+    "functional": {
+      "comment": "The floor is the largest flat face; the walls must stand off it. 5 mm is deliberately conservative — it only asserts that walls exist above the 2.5 mm floor, not how tall they are.",
+      "mounting_axis": "auto",
+      "protrusion_mm": 5.0
+    }
   }
 }

@@ -7,10 +7,36 @@
     "watertight": true,
     "single_solid": true,
     "dimensions": [
-      {"name": "overall_length", "source": "bbox", "axis": "x", "expected": 60.0, "tol": 0.3},
-      {"name": "overall_height", "source": "bbox", "axis": "z", "expected": 40.0, "tol": 0.3},
-      {"name": "WallThickness", "source": "alias", "alias": "WallThickness", "expected": 3.0, "tol": 0.02}
+      {
+        "name": "overall_length",
+        "source": "bbox",
+        "axis": "x",
+        "expected": 60.0,
+        "tol": 0.3
+      },
+      {
+        "name": "overall_height",
+        "source": "bbox",
+        "axis": "z",
+        "expected": 40.0,
+        "tol": 0.3
+      },
+      {
+        "name": "WallThickness",
+        "source": "alias",
+        "alias": "WallThickness",
+        "expected": 3.0,
+        "tol": 0.02
+      }
     ],
-    "parametric_probe": {"alias": "WallThickness", "delta": 1.0}
+    "parametric_probe": {
+      "alias": "WallThickness",
+      "delta": 1.0
+    },
+    "functional": {
+      "comment": "An L-bracket whose second arm does not stand off the first is a flat plate, not a bracket. mounting_axis auto: the task does not pin the pose, and either arm's outer face is a valid reference.",
+      "mounting_axis": "auto",
+      "protrusion_mm": 30.0
+    }
   }
 }

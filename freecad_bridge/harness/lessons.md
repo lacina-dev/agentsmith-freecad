@@ -34,3 +34,65 @@ A reviewer burned budget hunting for `freecad_bridge_client.py` in sibling folde
 **Rule:** the client is copied into the task's working directory by the panel — use
 `python3 freecad_bridge_client.py …` relative to the project directory and do not go
 looking elsewhere; if it is genuinely missing, say so instead of searching the disk.
+
+## L6 — Verify the machine, not the config, before a print (2026-07-24, cable clip)
+A test clip was sliced from `slicer-config.json` and uploaded without ever asking the
+printer what nozzle and filament it actually had. The config happened to be right, so
+nothing broke — but the check that would have caught a wrong spool was simply missing.
+A config records intent; only the machine knows reality, and a 40-minute print is not
+a cheap place to discover the difference. **Rule:** before starting any print, compare
+the nozzle diameter and filament type from the G-code header against the printer's own
+report AND against the material the user named in the prompt; treat "could not verify"
+as unresolved rather than as a match. → promoted: `manufacture` print step 4,
+`print_send.py --send` pre-flight (blocks `--start` on mismatch).
+
+## L7 — Vzdálený start tisku předpokládá prázdnou podložku (2026-07-25, háček na ručník)
+Tisk byl spuštěn ze sítě dvě hodiny po předchozím tisku, aniž kdokoli potvrdil, že je
+podložka volná. Tiskárna po startu spadla do `ATTENTION`. Pre-flight umí porovnat trysku
+a filament, ale **stav podložky žádné API nehlásí** — a hotový díl z minulého tisku pod
+sondou zastaví start stejně spolehlivě jako špatná tryska. **Rule:** před `--start` na
+dálku si nech potvrdit, že je podložka prázdná a předchozí výtisk sundaný; nahrání
+G-code je vratné a může proběhnout bez ptaní, roztočení tisku ne. → promoted:
+`manufacture` krok 4.
+
+## L8 — ZRUŠENA: chyba byla v evalu, ne v modelu (2026-07-26)
+Tady stálo, že modely třikrát vyrobily lisované uložení na jmenovitých 22,0 mm.
+**Nebyla to pravda.** Kontrola v `bearing_block_608.json` četla alias `BearingOD`
+a žádala, aby byl pod 21,95 — jenže `BearingOD` je z definice **22 mm, to je ten
+průměr ložiska**. Model měl celou dobu `PressInterference = 0,075` a `BoreDia =
+21,85`, což je přesně správně; ověřeno i na geometrii (válcová plocha Ø21,85).
+Po opravě aliasu na `BoreDia` má tentýž model **9/9**.
+
+Ponaučení tedy zůstává, ale míří jinam. **Rule:** než z opakovaného selhání uděláš
+pravidlo pro agenta, **ověř na geometrii, že check měří to, co si myslíš** — u
+kontroly aliasu si přečti, co ten alias podle zadání znamená. Tři „výskyty" byly tři
+spuštění jednoho rozbitého checku, a lekce z nich napsaná učila agenta opravovat
+něco, co dělal správně. Je to stejná třída chyby jako kdysi datumy počítané jako
+geometrie nebo obrácené normály — eval měřil něco jiného než realitu a vina padla
+na model. → promoted: `bearing_block_608.json` (alias opraven na `BoreDia`).
+
+## L9 — Rozměry běžných věcí se dohledávají, ne odhadují (2026-07-25, držák na utěrky)
+Držák na kuchyňské utěrky dostal 250 mm a role se do něj nevejde. Naměřeno: česká
+role ~230 mm, německá ~260 mm, americká 11″ = 279 mm, průměr 105–150 mm. Playbook
+o rešerši v harnesu **byl**, jen se nespustil — jeho spouštěč zněl „když spec odkazuje
+na objekt, jehož rozměry je třeba dohledat", a u kuchyňské role si člověk (i model)
+řekne, že tu přece zná. Právě u všedních předmětů sebejistý odhad selže, protože nic
+nenutí ke kontrole. **Rule:** cokoli díl drží, nese nebo do čeho zapadá, dostane
+rozměry **napsané i se zdrojem dřív, než vznikne první geometrie** — i když ten
+předmět „znáš". Dimenzuj na **největší běžnou variantu plus vůli** a napiš, pro
+kterou variantu je díl navržený; díl padnoucí jen na nejmenší verzi je pro většinu
+lidí rozbitý. → promoted: `core` (sekce „Before any geometry: what does it hold?",
+DoD bod 8), nový playbook `reference-dimensions`.
+
+## L10 — „Dotýkají se, takže drží" není spoj (2026-07-25, zpětná vazba z praxe)
+Vícedílné sestavy vznikaly bez toho, aby bylo řečeno, co je drží pohromadě —
+plocha na ploše a doufat. Dvě konkrétní pasti: díl na **jednom šroubu je pant**
+(drží, ale otočí se), a **tištěný závit nebo klip** na místě, kde působí síla,
+vydrží zlomek toho co koupené železo. **Rule:** ke každému rozhraní napsat, **co ho
+drží** a **co brání uvolnění a pootočení**, dřív než vznikne geometrie. U nosných
+míst sáhnout po **standardním spojovacím materiálu** (šroub do zálisku, matice
+v kapse, závitová tyč skrz díl) a u dlouhých tištěných dílů zvážit **závitovou tyč
+jako výztuhu** — plast je slabý mezi vrstvami, ocelová tyč z toho dělá problém oceli.
+V reportu uvést, co si musí uživatel koupit. → promoted: `core` DoD bod 9,
+`assembly` §3 a §3b, `fasteners` §6.
+

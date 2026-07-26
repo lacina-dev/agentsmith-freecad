@@ -75,7 +75,7 @@ Exit codes:
 | `1` | at least one check failed or errored |
 | `2` | the bridge could not be reached at all (nothing was graded) — the message tells you to open FreeCAD with the Bridge panel and a model loaded |
 
-If `/tmp/freecad-codex-bridge.json` is missing, unreadable, or the socket
+If `/tmp/freecad-agentsmith-bridge.json` is missing, unreadable, or the socket
 connection is refused, `run_eval.py` prints clear guidance and exits `2`
 instead of throwing a traceback.
 
@@ -136,6 +136,24 @@ are present and skips the rest.
     object in the document).
   - Every dimension entry needs `expected` and `tol` (absolute tolerance,
     same units as the value — normally mm).
+  - **`mode`** (optional, default `"window"`) — some requirements are one-sided
+    and a centred window states the wrong rule. Both alternatives take `expected`
+    as the limit and ignore `tol`:
+    - `"min"` — the measured value must be **at least** `expected`. Use it for
+      "a seat **at least** 8 mm wide": a 30 mm seat satisfies the request, but a
+      `expected 10, tol 3` window failed it (seen in the first real sweep).
+    - `"max"` — the measured value must be **at most** `expected`. Use it for
+      "sized slightly **undersize** for a press fit": a nominal 22.0 mm bore is a
+      slip fit and does not meet the request, yet it sits inside a ±0.1 window
+      around 21.9.
+
+    A `min` floor is also the honest way to grade a dimension that shares the
+    overall bounding box with something else — `snap_fit_box` measures two parts
+    laid out side by side, so the exact X extent is a layout choice, not a
+    dimension.
+  - Values exactly at the tolerance pass: the comparison carries a 1e-9 epsilon,
+    because `abs(22.0 - 21.9)` is `0.10000000000000142` in binary floating point
+    and would otherwise fail a `tol: 0.1` check on a dimensionally fine model.
 - **`parametric_probe`** (object, at most one per task) — proves the model
   is genuinely parametric, not hard-coded:
   1. Look up the named `alias` in `model_digest`, record its current value
@@ -171,6 +189,60 @@ are present and skips the rest.
     `Score: 7/7 checks passed (1 skipped)` rather than `7/8`). This lets you
     upgrade run_eval.py to grade printability without retroactively failing
     scorecards captured against an older bridge build.
+- **`functional`** (object) — grades whether the part can physically do its
+  job, not just whether it measures correctly. This exists because of a real
+  failure: on 2026-07-18 a wall hook scored **7/7** on the dimensional checks
+  while being an unusable flat plate (harness lessons L1/L2). Every sub-check
+  present produces its own scorecard row, and each uses the bridge's
+  `feature_probe` command (same skipped-on-old-bridge semantics as
+  `print_readiness`).
+
+  ```json
+  "functional": {
+    "mounting_axis": "auto",
+    "hole_axis_tol_deg": 10.0,
+    "min_hole_count": 2,
+    "min_hole_dia_mm": 3.0,
+    "max_hole_dia_mm": 8.0,
+    "protrusion_mm": 30.0,
+    "min_slab_ratio": 0.15
+  }
+  ```
+
+  - **`mounting_axis`** — the axis normal to the mounting/contact surface.
+    Default `"auto"`: the **largest planar face** across the graded objects is
+    taken as that surface and its normal is used. Prefer `auto` — a golden task
+    rarely pins the model's pose in world space (`printed_wall_hook` is
+    explicitly modelled lying on its side for printing), so a hard-coded `"y"`
+    would flag a perfectly good part. Set `"x"`/`"y"`/`"z"` only when the task
+    text really does fix the orientation.
+  - **`hole_axis_tol_deg`** (+ `min_hole_count`, `min_hole_dia_mm`,
+    `max_hole_dia_mm`) — every hole whose diameter falls in the window must be
+    within this many degrees of the mounting axis, i.e. **perpendicular to the
+    mounting plane**, or the screws cannot go in (lesson L1). The diameter
+    window selects the fasteners specifically: a bearing block's 22 mm bore is
+    deliberately *not* perpendicular to its base, so cap it with
+    `max_hole_dia_mm`. Bosses/pins and bores of unknown kind are not counted —
+    only real holes. Axis direction is ignored (a bore has an orientation, not
+    a direction).
+  - **`protrusion_mm`** — how far the body must stand off the mounting surface.
+    In `auto` mode this is the distance from the mounting face to the farthest
+    point of the shape (reported by `feature_probe` as `standoff_mm`), **not** a
+    bounding-box extent — a part lying diagonally has a large bbox in every
+    axis while standing off nothing. This is the check that catches lesson L2:
+    a silhouette built in the wrong projection plane stands off by only its own
+    wall thickness.
+  - **`min_slab_ratio`** — thinnest bounding-box dimension divided by the
+    largest. A cheap, pose-independent detector for the same flat-plate
+    failure; useful as a second opinion when a part has no clean mounting face.
+
+  Note which failure each sub-check does and does not catch: on a flat plaque
+  the screw holes genuinely *are* perpendicular to its largest face, so in
+  `auto` mode `functional_hole_axes` passes and `functional_protrusion` /
+  `functional_slab_ratio` are what fail. That is intended — they describe the
+  same defect from different angles, and any one of them failing sinks the
+  scorecard. `tests/test_functional_checks.py` pins this behaviour against the
+  original broken-hook geometry.
 
 ## Adding a new golden task
 
@@ -245,7 +317,7 @@ created if missing):
 ## Other flags
 
 - `--discovery PATH` — override the bridge discovery file path (default
-  `/tmp/freecad-codex-bridge.json`). Mainly useful for testing run_eval.py
+  `/tmp/freecad-agentsmith-bridge.json`). Mainly useful for testing run_eval.py
   itself against a nonexistent/fake path to exercise the "bridge
   unreachable" exit-2 path without touching the real bridge.
 
@@ -324,8 +396,32 @@ python3 eval/run_e2e.py --all --json --workdir /tmp/e2e --task-timeout 600
 ```
 
 Flags: `--all` / `--task PATH` (default `--all`), `--backend codex|claude`,
-`--model <id>`, `--workdir DIR`, `--task-timeout SECONDS` (default 900),
-`--discovery PATH`, `--force`, `--json`, `--no-save`.
+`--model <id>`, `--repeat N` (default 1), `--workdir DIR`,
+`--task-timeout SECONDS` (default 900), `--discovery PATH`, `--force`,
+`--json`, `--no-save`.
+
+**`--repeat N` — use it for anything you intend to keep.** The backend is
+stochastic: one run cannot distinguish a task that passes reliably from one that
+passes a third of the time, so a single-run number is not a baseline, it is an
+anecdote. Each repeat gets its own sandbox document (`e2e_<task>-run2.FCStd`),
+its own log (`<task>-run2.log`), and its own record carrying `run_index`;
+`compare.py` aggregates them into a pass rate.
+
+## Comparing two snapshots (`compare.py`)
+
+```bash
+python3 eval/run_e2e.py --all --repeat 3 --json > eval/baselines/2026-07-24-codex.json
+# ... change the harness ...
+python3 eval/run_e2e.py --all --repeat 3 --json > /tmp/after.json
+python3 eval/compare.py eval/baselines/2026-07-24-codex.json /tmp/after.json \
+    --labels "baseline,new-harness"
+```
+
+Prints a per-task table of every check with its pass rate on both sides, marking
+each as improvement / regression / new / removed, and exits `1` if anything
+regressed — so it can gate a change in a script. `--json` emits the same
+structure for further processing. It reads both runner shapes, so a `run_eval.py
+--all --json` scorecard can be compared against an e2e snapshot.
 
 Exit codes: `0` every task's every graded check passed; `1` at least one check
 failed/errored (or a backend run failed); `2` preconditions not met (bridge

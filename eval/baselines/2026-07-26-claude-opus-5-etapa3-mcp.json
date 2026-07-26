@@ -1,0 +1,47 @@
+{
+  "label": "etapa3-mcp",
+  "model": "claude-opus-5",
+  "mcp": null,
+  "review": null,
+  "tasks": 3,
+  "records": [
+    {
+      "timestamp_iso": "2026-07-25T23:27:03.232624+00:00",
+      "task_id": "bearing_block_608",
+      "backend": "claude",
+      "model": "claude-opus-5",
+      "score": "9/9",
+      "wall_time_sec": 961.07,
+      "backend_exit_code": 0,
+      "timed_out": false,
+      "all_passed": false,
+      "score_as_recorded": "8/9",
+      "correction": "Re-graded 2026-07-26 after the bore_diameter check was fixed: it read alias BearingOD (the bearing's nominal 22 mm) instead of BoreDia (21.85 mm, correctly undersized). The model was right; the check was not. Verified by re-grading the saved FCStd: 9/9."
+    },
+    {
+      "timestamp_iso": "2026-07-25T23:11:02.088777+00:00",
+      "task_id": "printed_wall_hook",
+      "backend": "claude",
+      "model": "claude-opus-5",
+      "score": "10/10",
+      "wall_time_sec": 1058.53,
+      "backend_exit_code": 0,
+      "timed_out": false,
+      "all_passed": true
+    },
+    {
+      "timestamp_iso": "2026-07-25T22:53:23.477953+00:00",
+      "task_id": "simple_l_bracket",
+      "backend": "claude",
+      "model": "claude-opus-5",
+      "score": "7/8",
+      "wall_time_sec": 390.35,
+      "backend_exit_code": 0,
+      "timed_out": false,
+      "all_passed": false
+    }
+  ],
+  "caveats": [
+    "bearing_block_608 was originally recorded as 8/9. That point was lost to a broken check in the task file, not to the model. Corrected in place; the original figure is kept as score_as_recorded."
+  ]
+}

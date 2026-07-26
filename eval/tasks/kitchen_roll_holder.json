@@ -1,0 +1,36 @@
+{
+  "id": "kitchen_roll_holder",
+  "title": "Kitchen towel roll holder (dimension research)",
+  "prompt": "Model a wall-mounted holder for a roll of kitchen paper towel, for FDM printing. It screws to the wall with two screws and the roll slides onto a horizontal arm. The roll must actually fit — work out what size a kitchen towel roll is before you size anything, state the numbers and where they came from, and say which size variant you designed for. Drive the roll clearance from a Parameters spreadsheet so it can be adjusted. Report which screws the user needs to buy.",
+  "checks": {
+    "validate": true,
+    "watertight": true,
+    "single_solid": true,
+    "dimensions": [
+      {
+        "name": "fits_the_largest_common_roll",
+        "source": "bbox",
+        "axis": "max",
+        "expected": 285.0,
+        "mode": "min",
+        "comment": "THE point of this task. A kitchen roll is 230 mm in Czechia, 260 mm in Germany and 279 mm (11 in) in the US, so anything designed around a guessed 250 mm fits neither of the larger two. The holder's longest dimension must clear the largest common roll plus clearance and its own walls; 285 mm is the floor, not a target. Measured on the bounding box because the roll axis can be modelled along any axis."
+      }
+    ],
+    "parametric_probe": {
+      "alias": "RollClearance",
+      "delta": 1.0,
+      "comment": "the clearance must be a real driving parameter, not a number buried in a sketch"
+    },
+    "print_readiness": {
+      "up_axis": "z",
+      "overhang_deg": 45.0,
+      "max_overhang_area_pct": 20.0,
+      "min_feature_mm": 3.0
+    },
+    "functional": {
+      "comment": "A holder is only a holder if the thing goes into it. The dimension check above is the real test; these confirm it is a mountable part and not a decorative slab.",
+      "min_hole_count": 2,
+      "mounting_reference": "largest_plane"
+    }
+  }
+}

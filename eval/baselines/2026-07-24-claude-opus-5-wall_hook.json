@@ -1,0 +1,122 @@
+[
+  {
+    "task_id": "printed_wall_hook",
+    "run_index": 1,
+    "title": "J-shaped wall hook (FDM)",
+    "backend": "claude",
+    "model": "claude-opus-5",
+    "log_path": "/home/robert/Projects/3dTest/eval/results/e2e-logs/printed_wall_hook.log",
+    "doc_name": "e2e_printed_wall_hook",
+    "fcstd_path": "/tmp/claude-1001/-home-robert-Projects-3dTest/65177332-883f-4980-b178-1daabcf66c42/scratchpad/ab3-claude/e2e_printed_wall_hook.FCStd",
+    "backend_exit_code": 0,
+    "timed_out": false,
+    "wall_time_sec": 965.31,
+    "grade": {
+      "task_id": "printed_wall_hook",
+      "title": "J-shaped wall hook (FDM)",
+      "prompt": "Model a small J-shaped wall-mount hook for FDM 3D printing: a flat wall-mounting plate with two screw holes, a vertical arm, and a curved J-shaped lip at the top that catches a strap or bag handle rated for about 5 kg. Design it to be printed flat on its side (so the load-bearing arm prints along the strong layer-bonding direction) with at least 3 perimeters/shells for strength, and chamfer the bottom edges so it doesn't snag stray threads. Overall height about 120 mm. Drive the plate/arm thickness from a WallT parameter (8 mm) in a Parameters spreadsheet.",
+      "results": [
+        {
+          "check": "validate",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": ""
+        },
+        {
+          "check": "watertight",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": "WallHook: valid=True closed=True"
+        },
+        {
+          "check": "single_solid",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": "WallHook: solids=1"
+        },
+        {
+          "check": "overall_height",
+          "status": "pass",
+          "expected": 120.0,
+          "actual": 120.00000000000014,
+          "note": "bbox size, axis=max, object=<overall model>; diff=1.42109e-13 (tol=2)"
+        },
+        {
+          "check": "WallT",
+          "status": "pass",
+          "expected": 8.0,
+          "actual": 8.0,
+          "note": "spreadsheet alias=WallT; diff=0 (tol=0.1)"
+        },
+        {
+          "check": "parametric_probe(WallT)",
+          "status": "pass",
+          "expected": "validate.ok after +1.0",
+          "actual": true,
+          "note": "set WallT: 8.0 -> 9.0, then validate.ok=True"
+        },
+        {
+          "check": "print_readiness",
+          "status": "pass",
+          "expected": {
+            "max_overhang_area_pct": 15.0,
+            "min_feature_mm": 3.0
+          },
+          "actual": {
+            "overhang_area_pct": 12.2493,
+            "min_bbox_dim": 25.0,
+            "objects_graded": 1,
+            "objects_errored": 0
+          },
+          "note": "1 object(s) graded; overhang_area_pct=12.25% (max 15%); min_bbox_dim=25 (required >= 3)"
+        },
+        {
+          "check": "functional_hole_axes",
+          "status": "fail",
+          "expected": {
+            "mounting_axis": "auto",
+            "tol_deg": 10.0,
+            "min_hole_count": 2,
+            "min_hole_dia_mm": 3.0,
+            "min_hole_angle_deg": 300.0
+          },
+          "actual": {
+            "holes_found": 0,
+            "misaligned": 0
+          },
+          "note": "only 0 hole(s) of diameter >= 3 mm found, need 2 — fastener holes missing or modelled as something other than a bore"
+        },
+        {
+          "check": "functional_protrusion",
+          "status": "pass",
+          "expected": {
+            "axis": "auto",
+            "min_mm": 25.0
+          },
+          "actual": 38.0,
+          "note": "stands off the normal of the largest flat face (1779 mm2) by 38 mm (need >= 25 mm)"
+        },
+        {
+          "check": "functional_slab_ratio",
+          "status": "pass",
+          "expected": {
+            "min_ratio": 0.15
+          },
+          "actual": 0.2083,
+          "note": "thinnest/largest bbox dimension = 0.2083 (need >= 0.15)"
+        }
+      ],
+      "passed_count": 9,
+      "failed_count": 1,
+      "error_count": 0,
+      "skipped_count": 0,
+      "total_count": 10,
+      "graded_count": 10,
+      "all_passed": false
+    },
+    "error": null
+  }
+]

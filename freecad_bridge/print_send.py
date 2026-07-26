@@ -23,6 +23,7 @@ then --status/--send report clearly that the printer is not reachable.
 import argparse
 import json
 import os
+import re
 import socket
 import sys
 import urllib.error
@@ -40,6 +41,42 @@ class SetupError(Exception):
 
 class PrinterError(Exception):
     """The printer API refused the request (exit 1)."""
+
+
+def resolve_api_key(network):
+    """The printer's credential, from wherever it is kept.
+
+    Order: an explicit `api_key`, then the file named by `api_key_file`, then the
+    environment variable named by `api_key_env`. The indirection exists because
+    slicer-config.json is tracked in git and pushed to a remote — a printer password
+    committed there is a password published. Prefer `api_key_file` pointing outside
+    the repository (e.g. ~/.config/agentsmith/...), readable only by you.
+
+    On a Prusa CORE One the PrusaLink *password* (Settings -> Network -> PrusaLink)
+    is what goes here: the firmware accepts it as X-Api-Key as well as via digest auth.
+    """
+    direct = (network.get("api_key") or "").strip()
+    if direct:
+        return direct
+    path = network.get("api_key_file")
+    if path:
+        path = os.path.expanduser(path)
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                value = handle.read().strip()
+            if value:
+                return value
+            raise SetupError("Credential file %s is empty." % path)
+        except OSError as exc:
+            raise SetupError("Cannot read credential file %s: %s" % (path, exc))
+    variable = network.get("api_key_env")
+    if variable:
+        value = (os.environ.get(variable) or "").strip()
+        if value:
+            return value
+        raise SetupError("Environment variable %s is not set (it should hold the "
+                         "printer credential)." % variable)
+    return ""
 
 
 def load_config():
@@ -93,15 +130,108 @@ def _http(request):
 
 
 # --------------------------------------------------------------------------- #
+# Pre-flight: does this G-code match the machine that is about to run it?
+# --------------------------------------------------------------------------- #
+GCODE_HEADER_BYTES = 65536
+
+
+def gcode_settings(path):
+    """What the slicer baked into the file: nozzle, material, printer model.
+
+    Read from the G-code itself rather than from slicer-config.json, because the
+    file on disk is what the printer will execute — a config edited after slicing,
+    or a G-code sliced somewhere else entirely, would otherwise pass a check it
+    ought to fail.
+    """
+    patterns = {
+        "nozzle_diameter": re.compile(r"^;\s*nozzle_diameter\s*=\s*([\d.]+)", re.I),
+        "filament_type": re.compile(r"^;\s*filament_type\s*=\s*(\S+)", re.I),
+        "printer_model": re.compile(r"^;\s*printer_model\s*=\s*(.+?)\s*$", re.I),
+    }
+    try:
+        size = os.path.getsize(path)
+        with open(path, "r", encoding="utf-8", errors="replace") as handle:
+            text = handle.read(GCODE_HEADER_BYTES)
+            if size > GCODE_HEADER_BYTES:
+                handle.seek(size - GCODE_HEADER_BYTES)
+                text += "\n" + handle.read()
+    except OSError as exc:
+        raise SetupError("Cannot read G-code %s: %s" % (path, exc))
+    found = {}
+    for line in text.splitlines():
+        for key, pattern in patterns.items():
+            if key not in found:
+                match = pattern.match(line)
+                if match:
+                    found[key] = match.group(1).strip()
+    return found
+
+
+def printer_actual(host, network):
+    """Nozzle diameter and loaded material as the PRINTER reports them.
+
+    PrusaLink splits these: /api/v1/info carries the nozzle, /api/printer carries
+    telemetry.material. A missing value is left missing — never assumed to match.
+    """
+    actual = {}
+    if network.get("type") != "prusalink":
+        return actual
+    headers = {"X-Api-Key": resolve_api_key(network)}
+    for endpoint, extract in (
+            ("/api/v1/info", lambda d: ("nozzle_diameter", d.get("nozzle_diameter"))),
+            ("/api/printer", lambda d: ("material", (d.get("telemetry") or {}).get("material")))):
+        try:
+            status, body = _http(urllib.request.Request(
+                "http://%s%s" % (host, endpoint), headers=headers))
+            if status < 400:
+                key, value = extract(json.loads(body.decode("utf-8", "replace")))
+                if value is not None:
+                    actual[key] = value
+        except Exception:
+            continue
+    return actual
+
+
+def preflight_mismatches(sliced, actual):
+    """(problems, unknowns) — differences that would ruin the print, and gaps.
+
+    A value the printer does not report is NOT counted as a match: "we could not
+    check" and "it is fine" are different answers, and only one of them is true.
+    """
+    problems, unknown = [], []
+
+    sliced_nozzle, actual_nozzle = sliced.get("nozzle_diameter"), actual.get("nozzle_diameter")
+    if sliced_nozzle is None:
+        unknown.append("the G-code does not state a nozzle diameter")
+    elif actual_nozzle is None:
+        unknown.append("the printer does not report its nozzle diameter")
+    elif abs(float(sliced_nozzle) - float(actual_nozzle)) > 1e-6:
+        problems.append("nozzle: sliced for %s mm, printer has %s mm"
+                        % (sliced_nozzle, actual_nozzle))
+
+    sliced_material = (sliced.get("filament_type") or "").upper()
+    actual_material = (actual.get("material") or "").upper()
+    if not sliced_material:
+        unknown.append("the G-code does not state a filament type")
+    elif actual_material in ("", "---", "UNKNOWN", "NONE"):
+        unknown.append("the printer does not report a loaded filament")
+    elif sliced_material != actual_material:
+        problems.append("filament: sliced for %s, printer has %s"
+                        % (sliced_material, actual_material))
+
+    return problems, unknown
+
+
+# --------------------------------------------------------------------------- #
 # PrusaLink (Prusa CORE One)
 # --------------------------------------------------------------------------- #
 def prusalink_status(host, network):
     request = urllib.request.Request(
         "http://%s/api/v1/status" % host,
-        headers={"X-Api-Key": network.get("api_key", "")})
+        headers={"X-Api-Key": resolve_api_key(network)})
     status, body = _http(request)
     if status == 401:
-        raise PrinterError("PrusaLink rejected the API key (401). Set printers.<key>.network.api_key.")
+        raise PrinterError("PrusaLink rejected the credential (401). On a CORE One this is the PrusaLink PASSWORD from Settings -> Network -> PrusaLink; point printers.<key>.network.api_key_file at a file holding it.")
     if status >= 400:
         raise PrinterError("PrusaLink /status returned HTTP %d: %s" % (status, body[:300]))
     return json.loads(body.decode("utf-8", "replace"))
@@ -112,21 +242,46 @@ def prusalink_send(host, network, gcode_path, start):
     with open(gcode_path, "rb") as handle:
         payload = handle.read()
     headers = {
-        "X-Api-Key": network.get("api_key", ""),
+        "X-Api-Key": resolve_api_key(network),
         "Content-Type": "application/octet-stream",
         "Content-Length": str(len(payload)),
         "Overwrite": "?1",
     }
     if start:
         headers["Print-After-Upload"] = "?1"
-    request = urllib.request.Request(
-        "http://%s/api/v1/files/usb/%s" % (host, urllib.parse.quote(name)),
-        data=payload, headers=headers, method="PUT")
-    status, body = _http(request)
+    url = "http://%s/api/v1/files/usb/%s" % (host, urllib.parse.quote(name))
+
+    def put():
+        return _http(urllib.request.Request(
+            url, data=payload, headers=headers, method="PUT"))
+
+    status, body = put()
+    if status >= 500:
+        # PrusaLink stores files on a FAT volume and honours "Overwrite: ?1"
+        # unreliably: re-uploading a name that already exists answers with a bare 500,
+        # especially once the long name has been folded into an 8.3 alias. Iterating on
+        # a model means uploading the same filename repeatedly, so delete first and try
+        # again — but only if the delete really succeeded, otherwise the second PUT
+        # just reproduces the same 500 and hides the real reason.
+        deleted, _ = _http(urllib.request.Request(
+            url, headers={"X-Api-Key": headers["X-Api-Key"]}, method="DELETE"))
+        if deleted < 400:
+            status, body = put()
+        elif deleted == 409:
+            raise PrinterError(
+                "PrusaLink will not replace %s: the printer still has it selected "
+                "(DELETE returned 409). Finish or cancel that job on the printer, or "
+                "upload under a different filename." % name)
     if status == 401:
         raise PrinterError("PrusaLink rejected the API key (401).")
     if status >= 400:
-        raise PrinterError("PrusaLink upload failed (HTTP %d): %s" % (status, body[:300]))
+        hint = ""
+        if len(os.path.splitext(name)[0]) > 8:
+            hint = (" The name is longer than the 8.3 limit of the printer's USB "
+                    "volume; a shorter one (<=8 characters before the extension) "
+                    "usually uploads cleanly.")
+        raise PrinterError("PrusaLink upload failed (HTTP %d): %s%s"
+                           % (status, body[:300], hint))
     return {"uploaded": name, "started": bool(start), "http": status}
 
 
@@ -186,6 +341,9 @@ def main(argv=None):
     parser.add_argument("--status", action="store_true", help="Check the printer is reachable.")
     parser.add_argument("--send", default="", help="Path to a .gcode file to upload.")
     parser.add_argument("--printer", default="", help="Printer key from slicer-config.json.")
+    parser.add_argument("--force", action="store_true",
+                        help="Start the print even if the G-code and the printer disagree "
+                             "about nozzle or filament. Wastes filament when you are wrong.")
     parser.add_argument("--start", action="store_true", help="Start the print after upload.")
     parser.add_argument("--json", action="store_true", help="Machine-readable output.")
     opts = parser.parse_args(argv)
@@ -219,8 +377,32 @@ def main(argv=None):
             gcode = os.path.abspath(os.path.expanduser(opts.send))
             if not os.path.isfile(gcode):
                 raise SetupError("G-code file not found: %s" % opts.send)
+
+            # Ask the MACHINE what it is, and compare with what the file was sliced
+            # for. Config files describe intent; the printer describes reality, and a
+            # 0.6 nozzle running 0.4 G-code (or PETG temperatures into PLA) wastes
+            # filament at best. Uploading is reversible, so a mismatch only warns —
+            # STARTING a print is not, so that is refused unless --force.
+            sliced = gcode_settings(gcode)
+            actual = printer_actual(host, network)
+            problems, unknown = preflight_mismatches(sliced, actual)
+            if not opts.json:
+                print("Pre-flight: G-code %s / %s nozzle  vs  printer %s / %s nozzle" % (
+                    sliced.get("filament_type", "?"), sliced.get("nozzle_diameter", "?"),
+                    actual.get("material", "?"), actual.get("nozzle_diameter", "?")))
+                for note in unknown:
+                    print("  ? could not verify: %s" % note)
+                for note in problems:
+                    print("  ! MISMATCH: %s" % note)
+            if problems and opts.start and not opts.force:
+                raise SetupError(
+                    "Refusing to start the print: " + "; ".join(problems)
+                    + ". Fix the printer or re-slice; pass --force to override.")
+
             result = send_fn(host, network, gcode, opts.start)
-            result.update({"printer": printer["_key"], "network": kind})
+            result.update({"printer": printer["_key"], "network": kind,
+                           "preflight": {"sliced": sliced, "printer": actual,
+                                         "mismatches": problems, "unverified": unknown}})
             if opts.json:
                 print(json.dumps(result, indent=2))
             else:

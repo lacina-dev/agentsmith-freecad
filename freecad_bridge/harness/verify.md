@@ -32,6 +32,15 @@ check is numeric, not a guess.
   screw this on right now, does it do its job?" A part can pass every dimensional check
   and still fail this one — dimensional pass does NOT imply functional pass. A failure
   here is a defect to fix, never a footnote.
+- **Prove it with numbers, not just the render** — `feature_probe` answers exactly this
+  question and is what the grader uses:
+  - `largest_plane.normal` is your mounting/contact surface; `largest_plane.standoff_mm`
+    is how far the body actually stands off it. If that number is roughly your wall
+    thickness, the working feature does not protrude and you have built a flat lookalike
+    in the wrong projection plane (lesson L2) — no matter how right the silhouette looks.
+  - every fastener hole's `axis` must be parallel to that normal (perpendicular to the
+    mounting plane), or the screws cannot go in (lesson L1). Check `kind` too: a bore
+    reported as `boss` means you added material where you meant to remove it.
 
 ## Dimensional correctness
 

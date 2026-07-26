@@ -13,6 +13,15 @@ These rules apply to every live-editing task, regardless of task kind.
 - The rendered images you were given are visual evidence of *shape and orientation
   only*. Never read dimensions off an image; always confirm numbers from `model_digest`,
   `object_info`, `sketch_info`, or `spreadsheet_info`.
+- For the **functional** facts a bounding box cannot express — where the holes point and
+  which face the part sits on — use:
+  `python3 freecad_bridge_client.py feature_probe '{}'`
+  It returns every bore/boss as one entry (axis direction, diameter, length, and whether
+  material lies outside it = hole or inside it = boss), plus the planar faces with their
+  outward normals and areas, and how far the body stands off its largest flat face
+  (`standoff_mm`). Use it instead of hand-rolled `execute_python` face loops: the same
+  numbers grade your work, so measuring them the same way removes a whole class of
+  disagreement between you and the reviewer.
 - If a value drives geometry (a Spreadsheet cell, a sketch datum, an expression), that
   driver is what you change — never hard-code a one-off number that happens to fit the
   current model.
@@ -49,6 +58,33 @@ These rules apply to every live-editing task, regardless of task kind.
   `screenshot`/`set_view` you request is transient. Still, leave the view tidy: finish
   with `fit_view` so the user returns to a framed model.
 
+## Before any geometry: what does it hold?
+
+If the part holds, carries, mounts, covers or mates with **anything that exists in
+the real world** — a roll of kitchen towel, a phone, a bearing, a shelf, a cable —
+write down that object's dimensions BEFORE modelling:
+
+```
+holds: kitchen towel roll
+  height  230–280 mm (CZ ~230, DE ~260, US 11" ~279)  [reference-dimensions playbook]
+  Ø       105–150 mm
+  designed for: 280 mm + 10 mm clearance = 290 mm inner height
+```
+
+Three rules, and the third is the one that gets skipped:
+
+- **Look it up even when you think you know it.** Everyday objects are exactly where
+  a confident guess goes wrong, because nothing prompts you to check. A holder built
+  for a 250 mm roll fits neither a German roll nor an American one.
+- **Size for the largest common variant, then add clearance** — and say which variant
+  you designed for. A part that fits only the smallest version is broken for most users.
+- **Put those numbers in the `Parameters` spreadsheet**, not inline in a sketch, so
+  the assumption is visible and adjustable instead of buried in geometry.
+
+Sources: your own knowledge is a starting point, not an answer — state the number,
+then confirm it with a web lookup if you have the tools, or with a second independent
+recollection if you do not. Record where each number came from in your report.
+
 ## Definition of done
 
 1. The live document actually changed (a real mutation via the bridge).
@@ -65,7 +101,14 @@ These rules apply to every live-editing task, regardless of task kind.
 7. The result bodies are **Visible** (`set_visibility`) — hide construction inputs and
    intermediate booleans, but a finished model the user cannot see reads as a failure.
    Then `save`, `fit_view`, and a final `screenshot`.
-8. Report the exact objects/parameters you changed, with before→after numbers.
+8. Every real-world object the part interacts with has its **dimensions stated with a
+   source**, and the model is checked against them — including the clearance and which
+   size variant it was built for.
+9. **Multi-part designs say how they stay together.** For each interface: what holds
+   it (screw, heat-set insert, snap, press fit, threaded rod, glue), what stops it
+   coming apart in use, and what stops it rotating. "The parts touch here" is not a
+   joint. (See the "Sestavy" and "Spojovací materiál" playbooks.)
+10. Report the exact objects/parameters you changed, with before→after numbers.
 
 ## Match the part to its character and use
 

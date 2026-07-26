@@ -50,7 +50,21 @@ Boss OD ~2× insert hole; leave a small lead-in chamfer and enough boss depth.
   fillet** to avoid a stress riser; add a lead-in ramp and a defined engagement face.
 - For living hinges (PP/PE), keep the hinge thin (~0.3–0.5 mm) and blend it in.
 
-## 6. Verify & deliver
+## 6. Reach for hardware before inventing geometry
+
+The default for anything structural is a **standard fastener**, not a printed
+feature. Screws, nuts, threaded rod, heat-set inserts and dowel pins are cheap,
+stronger than anything FDM produces, and let a part be taken apart again. Printed
+threads and clips are for light, non-structural, occasionally-opened things.
+
+The **Fasteners and Gears workbenches are installed** and drivable headlessly —
+see the "Reálný spojovací materiál a ozubení" playbook for verified calls. In a
+complex assembly the real screws belong in the model: they prove the fastener fits,
+the head clears and the thread reaches, and they make the design legible. Model the
+**holes, counterbores and nut pockets natively** — those are the printed part — and
+let fastener objects represent the bought hardware.
+
+## 7. Verify & deliver
 
 - Confirm hole/boss sizes with `measure`; confirm clearance holes don't interfere with
   the fastener path. Report the fastener spec and the modelled hole/boss sizes.

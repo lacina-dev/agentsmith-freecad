@@ -1,0 +1,210 @@
+[
+  {
+    "task_id": "bearing_block_608",
+    "run_index": 1,
+    "title": "608 bearing pillow block",
+    "backend": "codex",
+    "model": "gpt-5.6-sol",
+    "log_path": "/home/robert/Projects/3dTest/eval/results/e2e-logs/bearing_block_608.log",
+    "doc_name": "e2e_bearing_block_608",
+    "fcstd_path": "/tmp/claude-1001/-home-robert-Projects-3dTest/65177332-883f-4980-b178-1daabcf66c42/scratchpad/stage1b/e2e_bearing_block_608.FCStd",
+    "backend_exit_code": 0,
+    "timed_out": false,
+    "wall_time_sec": 114.63,
+    "grade": {
+      "task_id": "bearing_block_608",
+      "title": "608 bearing pillow block",
+      "prompt": "Model a pillow-block holder for a standard 608 bearing (22 mm OD x 8 mm bore x 7 mm wide): a press-fit bore sized slightly undersize for a light interference fit, a seat at least 8 mm wide (along the bearing axis) to fully support the bearing's 7 mm width, and a flat mounting base with two M5 clearance holes. Drive the bore diameter from a BearingOD parameter (nominal 22 mm, modeled undersized for a press fit) and the mounting-hole diameter from a BoltDia parameter (5.5 mm) via a Parameters spreadsheet.",
+      "results": [
+        {
+          "check": "validate",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": ""
+        },
+        {
+          "check": "watertight",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": "608 Pillow Block Body: valid=True closed=True"
+        },
+        {
+          "check": "single_solid",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": "608 Pillow Block Body: solids=1"
+        },
+        {
+          "check": "bore_diameter",
+          "status": "fail",
+          "expected": {
+            "mode": "max",
+            "limit": 21.95
+          },
+          "actual": 22.0,
+          "note": "spreadsheet alias=BearingOD; measured 22 (required <= 21.95)"
+        },
+        {
+          "check": "seat_width",
+          "status": "pass",
+          "expected": {
+            "mode": "min",
+            "limit": 8.0
+          },
+          "actual": 18.0,
+          "note": "bbox size, axis=y, object=<overall model>; measured 18 (required >= 8)"
+        },
+        {
+          "check": "BoltDia",
+          "status": "pass",
+          "expected": 5.5,
+          "actual": 5.5,
+          "note": "spreadsheet alias=BoltDia; diff=0 (tol=0.05)"
+        },
+        {
+          "check": "parametric_probe(BearingOD)",
+          "status": "pass",
+          "expected": "validate.ok after +0.5",
+          "actual": true,
+          "note": "set BearingOD: 22.0 -> 22.5, then validate.ok=True"
+        },
+        {
+          "check": "print_readiness",
+          "status": "pass",
+          "expected": {
+            "max_overhang_area_pct": 20.0
+          },
+          "actual": {
+            "overhang_area_pct": 0.0,
+            "min_bbox_dim": 18.0,
+            "objects_graded": 1,
+            "objects_errored": 0
+          },
+          "note": "1 object(s) graded; overhang_area_pct=0% (max 20%)"
+        },
+        {
+          "check": "functional_hole_axes",
+          "status": "pass",
+          "expected": {
+            "mounting_axis": "z",
+            "tol_deg": 10.0,
+            "min_hole_count": 2,
+            "min_hole_dia_mm": 4.0,
+            "min_hole_angle_deg": 240.0,
+            "max_hole_dia_mm": 8.0
+          },
+          "actual": {
+            "holes_found": 2,
+            "misaligned": 0
+          },
+          "note": "2 hole(s) within 10 deg of the z axis"
+        }
+      ],
+      "passed_count": 8,
+      "failed_count": 1,
+      "error_count": 0,
+      "skipped_count": 0,
+      "total_count": 9,
+      "graded_count": 9,
+      "all_passed": false
+    },
+    "error": null
+  },
+  {
+    "task_id": "snap_fit_box",
+    "run_index": 1,
+    "title": "Two-part snap-fit enclosure (FDM)",
+    "backend": "codex",
+    "model": "gpt-5.6-sol",
+    "log_path": "/home/robert/Projects/3dTest/eval/results/e2e-logs/snap_fit_box.log",
+    "doc_name": "e2e_snap_fit_box",
+    "fcstd_path": "/tmp/claude-1001/-home-robert-Projects-3dTest/65177332-883f-4980-b178-1daabcf66c42/scratchpad/stage1b/e2e_snap_fit_box.FCStd",
+    "backend_exit_code": 0,
+    "timed_out": false,
+    "wall_time_sec": 172.95,
+    "grade": {
+      "task_id": "snap_fit_box",
+      "title": "Two-part snap-fit enclosure (FDM)",
+      "prompt": "Model a two-part snap-fit enclosure for FDM: base box 60x40x25 mm outer, 2 mm walls, and a lid that closes with two cantilever snap-fits on the long sides. Parts must be separate solids side by side on the plate, with 0.25 mm clearance on the lid lip. Drive wall thickness (WallT=2), clearance (Clearance=0.25) and outer size from a Parameters spreadsheet.",
+      "results": [
+        {
+          "check": "validate",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": ""
+        },
+        {
+          "check": "watertight",
+          "status": "pass",
+          "expected": true,
+          "actual": true,
+          "note": "Base Box (PETG, print upright): valid=True closed=True; Snap Lid (PETG, print inverted): valid=True closed=True; Base - Hollow Box with Snap Windows: valid=True closed=True; Lid - Lip and Two Cantilever Snaps: valid=True closed=True"
+        },
+        {
+          "check": "solid_count",
+          "status": "fail",
+          "expected": 2,
+          "actual": 4,
+          "note": "4 of 4 visible object(s) contain >=1 solid (Base Box (PETG, print upright): solids=1; Snap Lid (PETG, print inverted): solids=1; Base - Hollow Box with Snap Windows: solids=1; Lid - Lip and Two Cantilever Snaps: solids=1)"
+        },
+        {
+          "check": "outer_length",
+          "status": "pass",
+          "expected": {
+            "mode": "min",
+            "limit": 60.0
+          },
+          "actual": 130.0,
+          "note": "bbox size, axis=x, object=<overall model>; measured 130 (required >= 60)"
+        },
+        {
+          "check": "WallT",
+          "status": "pass",
+          "expected": 2.0,
+          "actual": 2.0,
+          "note": "spreadsheet alias=WallT; diff=0 (tol=0.01)"
+        },
+        {
+          "check": "Clearance",
+          "status": "pass",
+          "expected": 0.25,
+          "actual": 0.25,
+          "note": "spreadsheet alias=Clearance; diff=0 (tol=0.01)"
+        },
+        {
+          "check": "parametric_probe(WallT)",
+          "status": "pass",
+          "expected": "validate.ok after +0.5",
+          "actual": true,
+          "note": "set WallT: 2.0 -> 2.5, then validate.ok=True"
+        },
+        {
+          "check": "print_readiness",
+          "status": "pass",
+          "expected": {
+            "max_overhang_area_pct": 25.0
+          },
+          "actual": {
+            "overhang_area_pct": 0.2794,
+            "min_bbox_dim": 10.0,
+            "objects_graded": 4,
+            "objects_errored": 0
+          },
+          "note": "4 object(s) graded; overhang_area_pct=0.2794% (max 25%)"
+        }
+      ],
+      "passed_count": 7,
+      "failed_count": 1,
+      "error_count": 0,
+      "skipped_count": 0,
+      "total_count": 8,
+      "graded_count": 8,
+      "all_passed": false
+    },
+    "error": null
+  }
+]

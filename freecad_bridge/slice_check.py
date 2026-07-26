@@ -37,7 +37,25 @@ import sys
 import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_APPIMAGE = "/home/robert/AppImages/OrcaSlicer_V2.4.2.AppImage"
+#: Where an OrcaSlicer AppImage is usually kept. Searched in order, and only as
+#: a convenience -- 'orca_appimage' in slicer-config.json overrides all of it.
+#: (This was a single hard-coded path under one developer's home directory,
+#: which quietly made the addon un-installable for everyone else.)
+APPIMAGE_SEARCH_DIRS = ("~/AppImages", "~/Applications", "~/.local/bin",
+                        "~/Downloads", "/opt", "/usr/local/bin")
+APPIMAGE_PATTERN = "OrcaSlicer*.AppImage"
+
+
+def find_appimage(search_dirs=APPIMAGE_SEARCH_DIRS, pattern=APPIMAGE_PATTERN):
+    """Newest OrcaSlicer AppImage in the usual places, or None."""
+    import glob as globmod
+    found = []
+    for directory in search_dirs:
+        found += globmod.glob(os.path.join(os.path.expanduser(directory), pattern))
+    if not found:
+        return None
+    # Newest by name: AppImages carry their version, and V2.4.2 sorts after V2.3.
+    return sorted(found)[-1]
 CACHE_PROFILES = os.path.expanduser("~/.cache/agentsmith-orca/profiles")
 DISCOVERY_FILE = "/tmp/freecad-agentsmith-bridge.json"
 SLICE_TIMEOUT = 240
@@ -84,7 +102,13 @@ def printer_table(cfg):
     raise SetupError("slicer-config.json defines no printers.")
 
 
-def select_printer(cfg, key):
+def select_printer(cfg, key, filament=None):
+    """Resolve one printer entry, optionally overriding which filament to slice for.
+
+    Material belongs to the spool in the machine, not to the machine: the same
+    printer runs PETG one day and PLA the next. `filaments` names the profiles a
+    printer can use; `filament` is whichever is loaded now.
+    """
     printers = printer_table(cfg)
     key = key or cfg.get("default_printer") or next(iter(printers))
     if key not in printers:
@@ -96,6 +120,18 @@ def select_printer(cfg, key):
         raise SetupError(
             f"Printer {key!r} ({printer.get('label', key)}) has no slicing profiles yet. "
             + (printer.get("note") or "Fill in machine/process/filament in slicer-config.json."))
+    if filament:
+        available = printer.get("filaments") or {}
+        wanted = str(filament).strip()
+        resolved = available.get(wanted.lower())
+        if resolved is None and wanted in available.values():
+            resolved = wanted  # a full profile name was given
+        if resolved is None:
+            raise SetupError(
+                "Printer %r has no filament %r. Available: %s."
+                % (key, wanted, ", ".join(sorted(available)) or "(none listed)"))
+        printer["filament"] = resolved
+        printer["loaded_filament"] = wanted.lower()
     printer["_key"] = key
     return printer
 
@@ -137,12 +173,13 @@ def resolve_profiles_dir_for(cfg, printer):
 
 
 def extract_profiles(cfg):
-    appimage = cfg.get("orca_appimage") or DEFAULT_APPIMAGE
-    if not os.path.isfile(appimage):
+    appimage = os.path.expanduser(cfg.get("orca_appimage") or "") or find_appimage()
+    if not appimage or not os.path.isfile(appimage):
         raise SetupError(
-            "OrcaSlicer profiles are not cached and the AppImage was not found "
-            f"at {appimage!r}. Set 'orca_appimage' in slicer-config.json, or "
-            f"point 'profiles_dir' / $AGENTSMITH_ORCA_PROFILES at an existing "
+            "OrcaSlicer profiles are not cached and no AppImage was found "
+            f"(looked in {', '.join(APPIMAGE_SEARCH_DIRS)} for "
+            f"{APPIMAGE_PATTERN!r}). Set 'orca_appimage' in slicer-config.json, "
+            "or point 'profiles_dir' / $AGENTSMITH_ORCA_PROFILES at an existing "
             "resources/profiles directory.")
     workdir = tempfile.mkdtemp(prefix="orca-extract-")
     try:
@@ -503,6 +540,10 @@ def main(argv=None):
                         help="Printer key from slicer-config.json (default: config default_printer).")
     parser.add_argument("--list-printers", action="store_true",
                         help="List configured printers and exit.")
+    parser.add_argument("--filament", default="",
+                        help="Slice for a different material than the one loaded, e.g. "
+                             "--filament petg. Names come from the printer's 'filaments' "
+                             "map in slicer-config.json.")
     parser.add_argument("--outputdir", default="",
                         help="Persist the produced G-code into this directory (created if missing).")
     opts = parser.parse_args(argv)
@@ -534,7 +575,8 @@ def main(argv=None):
     workdir = tempfile.mkdtemp(prefix="slice-check-")
     try:
         cfg = load_config()
-        printer = select_printer(cfg, opts.printer.strip() or None)
+        printer = select_printer(cfg, opts.printer.strip() or None,
+                                 opts.filament.strip() or None)
 
         if opts.from_bridge:
             model_name = "FreeCAD model (bridge export)"

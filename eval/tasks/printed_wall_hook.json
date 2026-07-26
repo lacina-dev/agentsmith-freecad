@@ -7,10 +7,39 @@
     "watertight": true,
     "single_solid": true,
     "dimensions": [
-      {"name": "overall_height", "source": "bbox", "axis": "max", "expected": 120.0, "tol": 2.0},
-      {"name": "WallT", "source": "alias", "alias": "WallT", "expected": 8.0, "tol": 0.1}
+      {
+        "name": "overall_height",
+        "source": "bbox",
+        "axis": "max",
+        "expected": 120.0,
+        "tol": 2.0
+      },
+      {
+        "name": "WallT",
+        "source": "alias",
+        "alias": "WallT",
+        "expected": 8.0,
+        "tol": 0.1
+      }
     ],
-    "parametric_probe": {"alias": "WallT", "delta": 1.0},
-    "print_readiness": {"up_axis": "z", "overhang_deg": 45.0, "max_overhang_area_pct": 15.0, "min_feature_mm": 3.0}
+    "parametric_probe": {
+      "alias": "WallT",
+      "delta": 1.0
+    },
+    "print_readiness": {
+      "up_axis": "z",
+      "overhang_deg": 45.0,
+      "max_overhang_area_pct": 15.0,
+      "min_feature_mm": 3.0
+    },
+    "functional": {
+      "comment": "THE task this whole check type exists for: on 2026-07-18 this task scored 7/7 while producing an unusable flat plate (harness lessons L1/L2). mounting_axis auto because the task pins no pose — the hook is explicitly modelled lying on its side for printing.",
+      "mounting_axis": "auto",
+      "hole_axis_tol_deg": 10.0,
+      "min_hole_count": 2,
+      "min_hole_dia_mm": 3.0,
+      "protrusion_mm": 25.0,
+      "min_slab_ratio": 0.15
+    }
   }
 }

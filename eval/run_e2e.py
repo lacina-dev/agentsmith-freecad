@@ -60,6 +60,7 @@ import run_eval  # noqa: E402
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 EVAL_DIR = os.path.join(REPO_ROOT, "eval")
+ADDON_DIR = os.path.join(REPO_ROOT, "freecad_bridge")
 TASKS_DIR = os.path.join(EVAL_DIR, "tasks")
 RESULTS_DIR = os.path.join(EVAL_DIR, "results")
 DEFAULT_WORKDIR = os.path.join(RESULTS_DIR, "e2e-workdir")
@@ -70,7 +71,15 @@ BRIDGE_CLIENT = os.path.join(REPO_ROOT, "freecad_bridge_client.py")
 HARNESS_DIR = os.path.join(REPO_ROOT, "freecad_bridge", "harness")
 DEFAULT_DISCOVERY = run_eval.DISCOVERY_FILE
 
-# Backend CLI program names, mirrored from BridgeGui._backend_launch.
+# The addon's GUI-free modules are shared with the panel so the eval runner
+# assembles the SAME harness text and the SAME backend flags production uses.
+# They import no FreeCAD/Qt, so they load fine in a plain interpreter.
+sys.path.insert(0, os.path.join(REPO_ROOT, "freecad_bridge"))
+import agentsmith_backends  # noqa: E402
+import agentsmith_harness  # noqa: E402
+
+# Backends this runner supports. The panel additionally offers copilot, which
+# has never been exercised headlessly.
 BACKEND_COMMANDS = {"codex": "codex", "claude": "claude"}
 
 # --------------------------------------------------------------------------
@@ -141,48 +150,19 @@ def execute_python(code, timeout=60):
 # --------------------------------------------------------------------------
 
 def assemble_harness_text():
-    """Concatenate the modeling harness the same way BridgeGui._harness_text does:
-    always_include files first, then a generated index of every playbook with its
-    trigger, then every playbook body. Read-only reads of freecad_bridge/harness/."""
-    registry = {"always_include": [], "playbooks": []}
-    try:
-        with open(os.path.join(HARNESS_DIR, "registry.json"), "r", encoding="utf-8") as handle:
-            loaded = json.load(handle)
-        if isinstance(loaded, dict):
-            registry["always_include"] = list(loaded.get("always_include", []))
-            registry["playbooks"] = [p for p in loaded.get("playbooks", []) if p.get("id") and p.get("file")]
-    except Exception as exc:
-        print("WARNING: could not read harness registry: %s" % exc, file=sys.stderr)
+    """The modeling harness, assembled by the SAME code the panel uses.
 
-    def _read(name):
-        try:
-            with open(os.path.join(HARNESS_DIR, name), "r", encoding="utf-8") as handle:
-                return handle.read().strip()
-        except Exception as exc:
-            print("WARNING: harness file %s: %s" % (name, exc), file=sys.stderr)
-            return ""
-
-    playbooks = registry["playbooks"]
-    sections = [_read(name) for name in registry["always_include"]]
-    if playbooks:
-        index = [
-            "## Harness library — apply what fits",
-            "All playbooks below are ALWAYS provided; there is no single mode. Apply every "
-            "playbook whose trigger matches the part's character or how it will be used, and "
-            "ignore the ones that don't apply.",
-        ]
-        for playbook in playbooks:
-            trigger = playbook.get("trigger")
-            label = playbook.get("label", playbook["id"])
-            index.append("- **%s** — apply when %s" % (label, trigger) if trigger else "- **%s**" % label)
-        sections.append("\n".join(index))
-        sections.extend(_read(playbook["file"]) for playbook in playbooks)
-
-    label = "full harness (%d playbooks)" % len(playbooks)
-    return label, "\n\n".join(section for section in sections if section)
+    This used to be a hand-kept copy of BridgeGui._harness_text and had already
+    drifted (its index preamble was missing a sentence), so the eval measured a
+    prompt production never sends. Now both call agentsmith_harness."""
+    return agentsmith_harness.assemble_harness(
+        HARNESS_DIR,
+        label_template="full harness (%d playbooks)",
+        warn=lambda message: print("WARNING: %s" % message, file=sys.stderr),
+    )
 
 
-def build_worker_prompt(task, doc_name, fcstd_path, discovery_file):
+def build_worker_prompt(task, doc_name, fcstd_path, discovery_file, project_dir):
     """Compose the backend worker prompt: harness + a compact delivery contract +
     the task prompt. A deliberately simplified version of the panel's context
     (see the module docstring for what was dropped)."""
@@ -217,7 +197,7 @@ def build_worker_prompt(task, doc_name, fcstd_path, discovery_file):
         "never claim success from source-file edits alone.\n\n"
         "USER REQUEST: %s"
         % (
-            task_id, REPO_ROOT, doc_name, fcstd_path,
+            task_id, project_dir, doc_name, fcstd_path,
             kind_label, harness_text or "(no harness playbook loaded)",
             BRIDGE_CLIENT, discovery_file, BRIDGE_CLIENT,
             doc_name, prompt,
@@ -229,28 +209,151 @@ def build_worker_prompt(task, doc_name, fcstd_path, discovery_file):
 # Backend launch (flag shapes mirrored from BridgeGui._backend_launch)
 # --------------------------------------------------------------------------
 
-def build_backend_command(backend, model, context):
-    program = BACKEND_COMMANDS[backend]
-    if backend == "codex":
-        args = ["exec", "--json", "--skip-git-repo-check", "-C", REPO_ROOT,
-                "-s", "danger-full-access", context]
-        if model:
-            args[1:1] = ["-m", model]
-    elif backend == "claude":
-        args = ["-p", "--output-format", "stream-json", "--verbose",
-                "--dangerously-skip-permissions", "--no-session-persistence", context]
-        if model:
-            args[1:1] = ["--model", model]
-    else:
+def mcp_settings(project_dir):
+    """Point the backend at the bridge's MCP server, the way the panel does.
+
+    Written into the sandbox project rather than registered globally, so an eval
+    run cannot leave a server behind in the user's CLI config. Returns None if the
+    server file is missing, so --mcp degrades to a normal run instead of failing.
+    """
+    server = os.path.join(ADDON_DIR, "mcp_server.py")
+    if not os.path.isfile(server):
+        print("MCP requested but %s is missing — running with the CLI client." % server,
+              file=sys.stderr)
+        return None
+    settings = {"name": agentsmith_backends.MCP_SERVER_NAME,
+                "command": sys.executable or "python3", "args": [server]}
+    try:
+        config_dir = os.path.join(project_dir, ".agentsmith")
+        os.makedirs(config_dir, exist_ok=True)
+        config_path = os.path.join(config_dir, "mcp.json")
+        with open(config_path, "w", encoding="utf-8") as handle:
+            json.dump(agentsmith_backends.mcp_config_document(
+                settings["command"], settings["args"], settings["name"]), handle, indent=2)
+        settings["config_path"] = config_path
+    except OSError as exc:
+        print("MCP config could not be written (%s)" % exc, file=sys.stderr)
+    return settings
+
+
+REVIEW_PROMPT = (
+    "You are an INDEPENDENT QA REVIEWER for a FreeCAD model. A worker agent just "
+    "attempted the task below. Judge whether the live model actually satisfies it — "
+    "you are the judge, not the maker.\n\n"
+    "HARD RULE: inspect only. Do NOT modify, create, remove, recompute or save "
+    "anything.\n\n"
+    "Bridge client: %(project)s/freecad_bridge_client.py   Discovery: %(discovery)s\n"
+    "Read commands only: ping, document_info, object_info, model_digest, measure, "
+    "cross_section, check_solid, interference_check, mass_properties, validate, "
+    "sketch_info, spreadsheet_info. The document to inspect is '%(doc)s'.\n\n"
+    "ORIGINAL TASK:\n%(prompt)s\n\n"
+    "Work quickly. Measure what the task asks for, compare against the request, and "
+    "list ONLY real deviations — each as one line 'FINDING: <what is wrong, with the "
+    "measured number>'. If the model satisfies the task, answer exactly 'NO FINDINGS'.\n"
+)
+
+CORRECTIVE_PROMPT = (
+    "CORRECTIVE ROUND. An independent read-only reviewer checked your previous change "
+    "and raised the concerns below. Fix ONLY these concrete deviations; do not "
+    "redesign, and do not 'improve' anything they do not mention.\n\n"
+    "REVIEWER FINDINGS:\n%(findings)s\n\n"
+    "%(context)s"
+)
+
+
+def extract_findings(review_log, backend):
+    """Pull the reviewer's FINDING lines out of its log.
+
+    The log is the backend's JSON event stream, not plain text: the reviewer's
+    prose lives inside JSON strings where newlines are two characters. A first
+    version of this scanned the file for lines beginning with "FINDING:" and
+    therefore found nothing at all — including, on the very first run, a perfectly
+    correct report of a 40 mm arm that should have been 60 mm. The review loop
+    looked useless when it was the reader that was broken.
+
+    Decoding goes through the same helper the panel uses, so the two cannot drift.
+    """
+    try:
+        with open(review_log, "r", encoding="utf-8", errors="replace") as handle:
+            raw = handle.read()
+    except OSError:
+        return ""
+
+    texts = []
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            event = json.loads(line)
+        except ValueError:
+            texts.append(line)
+            continue
+        if isinstance(event, dict):
+            texts.extend(agentsmith_backends.backend_event_text(event, backend))
+            for key in ("result", "text", "content"):
+                value = event.get(key)
+                if isinstance(value, str):
+                    texts.append(value)
+
+    findings = []
+    for chunk in texts:
+        for piece in chunk.splitlines():
+            piece = piece.strip().lstrip("-*# ").strip()
+            if piece.startswith("FINDING:") and piece not in findings:
+                findings.append(piece)
+    return "\n".join(findings)
+
+
+def run_review_round(args, task, doc_name, log_path, project_dir, mcp):
+    """One reviewer pass plus, if it found something, one corrective worker round.
+
+    This mirrors what the panel does, and exists so the review loop can be MEASURED
+    rather than assumed to help. run_e2e deliberately skipped it until now, which
+    meant the whole quality-loop phase had no evidence behind it either way.
+
+    Returns (findings_text, corrective_exit_code) — either may be None.
+    """
+    review_context = REVIEW_PROMPT % {
+        "project": project_dir, "discovery": args.discovery,
+        "doc": doc_name, "prompt": task.get("prompt", "")}
+    review_log = log_path.replace(".log", ".review.log")
+    exit_code, timed_out, _wall = launch_backend(
+        args.backend, args.reviewer_model or args.model, review_context,
+        review_log, args.task_timeout, project_dir, mcp=mcp)
+    findings = extract_findings(review_log, args.backend)
+    if exit_code != 0 or timed_out or not findings or "NO FINDINGS" in findings.upper():
+        return findings or None, None
+
+    corrective = CORRECTIVE_PROMPT % {
+        "findings": findings,
+        "context": build_worker_prompt(task, doc_name,
+                                       os.path.join(project_dir, doc_name + ".FCStd"),
+                                       args.discovery, project_dir)}
+    fix_log = log_path.replace(".log", ".fix.log")
+    fix_exit, _t, _w = launch_backend(args.backend, args.model, corrective, fix_log,
+                                      args.task_timeout, project_dir, mcp=mcp)
+    return findings, fix_exit
+
+
+def build_backend_command(backend, model, context, project_dir, mcp=None):
+    """Program + argv for one backend run, built by the same code as the panel.
+
+    ``attach_images=False``: the eval sandbox has no reference or render images,
+    so the visual-attachment paths are deliberately not exercised here."""
+    if backend not in BACKEND_COMMANDS:
         raise ValueError("Unknown backend: %s" % backend)
-    return program, args
+    args = agentsmith_backends.build_launch_args(
+        backend, model, project_dir, context, attach_images=False, mcp=mcp)
+    return BACKEND_COMMANDS[backend], args
 
 
-def launch_backend(backend, model, context, log_path, task_timeout):
+def launch_backend(backend, model, context, log_path, task_timeout, project_dir,
+                   mcp=None):
     """Run the backend CLI as a subprocess with a HARD wall-clock timeout, streaming
     combined stdout/stderr to log_path. On timeout the whole process group is killed.
     Returns (exit_code, timed_out, wall_seconds)."""
-    program, args = build_backend_command(backend, model, context)
+    program, args = build_backend_command(backend, model, context, project_dir, mcp)
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
     start = time.monotonic()
     timed_out = False
@@ -262,7 +365,7 @@ def launch_backend(backend, model, context, log_path, task_timeout):
         log.flush()
         try:
             proc = subprocess.Popen(
-                [program] + args, cwd=REPO_ROOT,
+                [program] + args, cwd=project_dir,
                 stdout=log, stderr=subprocess.STDOUT,
                 start_new_session=True, text=True,
             )
@@ -397,15 +500,25 @@ def check_preconditions(force):
 # Per-task orchestration
 # --------------------------------------------------------------------------
 
-def run_task(task, task_path, args):
-    """Full e2e flow for one task. Returns a report dict."""
+def run_task(task, task_path, args, run_index=1):
+    """Full e2e flow for one task. Returns a report dict.
+
+    `run_index` is 1-based and only distinguishes repeated runs of the same task
+    (--repeat): the backend is stochastic, so one run tells you almost nothing —
+    a task that passes once and fails twice is a different fact from one that
+    passes three times."""
     task_id = task.get("id") or os.path.splitext(os.path.basename(task_path))[0]
-    log_path = os.path.join(LOGS_DIR, "%s.log" % task_id)
+    suffix = "" if run_index <= 1 else "-run%d" % run_index
+    log_path = os.path.join(LOGS_DIR, "%s%s.log" % (task_id, suffix))
     record = {
         "task_id": task_id,
+        "run_index": run_index,
         "title": task.get("title", task_id),
         "backend": args.backend,
         "model": args.model,
+        # Recorded per run: two snapshots that differ only in how the bridge was
+        # exposed are otherwise indistinguishable after the fact.
+        "mcp": bool(getattr(args, "mcp", False)),
         "log_path": log_path,
         "doc_name": None,
         "fcstd_path": None,
@@ -418,19 +531,40 @@ def run_task(task, task_path, args):
     start = time.monotonic()
     doc_name = None
     try:
-        doc_name, fcstd_path = create_sandbox_doc(task_id, args.workdir)
+        doc_name, fcstd_path = create_sandbox_doc(task_id + suffix, args.workdir)
         record["doc_name"] = doc_name
         record["fcstd_path"] = fcstd_path
 
-        context = build_worker_prompt(task, doc_name, fcstd_path, args.discovery)
+        # The worker runs IN the sandbox directory, not in the repository. Pointing it
+        # at the repo invited it to read the addon's own source instead of calling the
+        # bridge (observed live: a worker spent minutes grepping BridgeGui.py) and let
+        # it drop render artefacts into the working tree.
+        context = build_worker_prompt(task, doc_name, fcstd_path, args.discovery,
+                                      os.path.abspath(args.workdir))
         exit_code, timed_out, wall = launch_backend(
-            args.backend, args.model, context, log_path, args.task_timeout)
+            args.backend, args.model, context, log_path, args.task_timeout,
+            os.path.abspath(args.workdir),
+            mcp=mcp_settings(os.path.abspath(args.workdir)) if args.mcp else None)
         record["backend_exit_code"] = exit_code
         record["timed_out"] = timed_out
 
         # Grade the active document by reusing run_eval's check logic verbatim.
         ensure_active(doc_name)
         record["grade"] = run_eval.grade_task(task)
+
+        if args.review and not record["grade"].get("all_passed"):
+            # Both scores are kept. "The loop helped" is only visible as the pair
+            # before/after; a single final number cannot show whether the review
+            # fixed something or the first attempt was already fine.
+            record["grade_before_review"] = record["grade"]
+            findings, fix_exit = run_review_round(
+                args, task, doc_name, log_path, os.path.abspath(args.workdir),
+                mcp_settings(os.path.abspath(args.workdir)) if args.mcp else None)
+            record["review_findings"] = findings
+            record["corrective_exit_code"] = fix_exit
+            if fix_exit is not None:
+                ensure_active(doc_name)
+                record["grade"] = run_eval.grade_task(task)
     except run_eval.BridgeError as exc:
         # Bridge dropped mid-run: fatal, propagate so the whole run aborts.
         record["error"] = "bridge lost mid-task: %s" % exc
@@ -461,7 +595,17 @@ def append_history(record):
         "backend_exit_code": record["backend_exit_code"],
         "timed_out": record["timed_out"],
         "all_passed": bool(grade.get("all_passed")) if grade else False,
+        # What made this run different from another one. Without these two, a
+        # measurement branch is indistinguishable from the baseline after the
+        # fact — which is exactly what happened the first time this was run.
+        "mcp": bool(record.get("mcp")),
+        "review": "grade_before_review" in record,
     }
+    before = record.get("grade_before_review")
+    if before:
+        entry["score_before_review"] = "%d/%d" % (before.get("passed_count", 0),
+                                                  before.get("graded_count", 0))
+        entry["review_findings"] = record.get("review_findings")
     with open(HISTORY_FILE, "a", encoding="utf-8") as handle:
         handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
@@ -521,6 +665,9 @@ def main(argv=None):
                              "Default: the backend's own default.")
     parser.add_argument("--workdir", default=DEFAULT_WORKDIR, metavar="DIR",
                         help="Sandbox directory for eval .FCStd documents (default: %(default)s)")
+    parser.add_argument("--repeat", type=int, default=1, metavar="N",
+                        help="Run each task N times (default 1). Use 3+ for anything "
+                             "you intend to keep as a baseline — a single run is noise.")
     parser.add_argument("--task-timeout", type=int, default=900, metavar="SECONDS",
                         help="Hard wall-clock limit per backend task run (default: 900)")
     parser.add_argument("--discovery", default=DEFAULT_DISCOVERY, metavar="PATH",
@@ -530,6 +677,18 @@ def main(argv=None):
                              "documents have unsaved changes.")
     parser.add_argument("--json", action="store_true",
                         help="Emit machine-readable JSON instead of the Markdown scoreboard")
+    parser.add_argument("--review", action="store_true",
+                        help="After a task that did not score full marks, run an "
+                             "independent read-only reviewer and one corrective round, "
+                             "then re-grade. Both scores are recorded so the loop's "
+                             "effect is visible instead of assumed.")
+    parser.add_argument("--reviewer-model", default=None,
+                        help="Model for the reviewer pass (default: same as --model)")
+    parser.add_argument("--mcp", action="store_true",
+                        help="Expose the bridge to the backend as typed MCP tools "
+                             "instead of only the CLI client. This is what the panel's "
+                             "MCP checkbox does; the flag exists so the difference can "
+                             "be measured rather than assumed.")
     parser.add_argument("--no-save", action="store_true",
                         help="Do not append to eval/results/e2e-history.jsonl")
     args = parser.parse_args(argv)
@@ -571,7 +730,8 @@ def main(argv=None):
                     "error": "could not load task: %s" % exc,
                 })
                 continue
-            records.append(run_task(task, path, args))
+            for run_index in range(1, max(1, args.repeat) + 1):
+                records.append(run_task(task, path, args, run_index))
     except run_eval.BridgeError as exc:
         print("ERROR: bridge lost mid-run — aborting. %s" % exc, file=sys.stderr)
         if not args.no_save:

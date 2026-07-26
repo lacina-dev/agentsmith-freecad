@@ -31,6 +31,12 @@
       "trigger": "you are correcting a defect in an existing model"
     },
     {
+      "id": "reference_dimensions",
+      "label": "Rozměry běžných předmětů",
+      "file": "reference-dimensions.md",
+      "trigger": "the part holds, carries, mounts or mates with a real-world object (a roll, a phone, a board, a bearing, a cable) — including objects you believe you already know the size of"
+    },
+    {
       "id": "research",
       "label": "Rešerše rozměrů",
       "file": "research.md",
@@ -95,6 +101,12 @@
       "label": "Spojovací prvky / závity",
       "file": "fasteners.md",
       "trigger": "the design uses screws, threads, inserts, bosses or snap-fits"
+    },
+    {
+      "id": "workbenches",
+      "label": "Reálný spojovací materiál a ozubení",
+      "file": "workbenches.md",
+      "trigger": "the design is an assembly where real screws/nuts/threaded rod should be shown, or it involves gears — not only printed parts"
     },
     {
       "id": "enclosures",

@@ -7,11 +7,46 @@
     "watertight": true,
     "single_solid": true,
     "dimensions": [
-      {"name": "bore_diameter", "source": "alias", "alias": "BearingOD", "expected": 21.9, "tol": 0.1},
-      {"name": "seat_width", "source": "bbox", "axis": "y", "expected": 10.0, "tol": 3.0},
-      {"name": "BoltDia", "source": "alias", "alias": "BoltDia", "expected": 5.5, "tol": 0.05}
+      {
+        "name": "bore_diameter",
+        "source": "alias",
+        "alias": "BoreDia",
+        "expected": 21.95,
+        "mode": "max",
+        "comment": "Reads the BORE, not the bearing. This check used to read 'BearingOD' and demand it be under 21.95 — but BearingOD is the bearing's own nominal 22 mm by definition, so a correct model failed it every single time. Three runs were blamed on the agent for a defect that was in this file."
+      },
+      {
+        "name": "seat_width",
+        "source": "bbox",
+        "axis": "y",
+        "expected": 8.0,
+        "mode": "min",
+        "comment": "task says 'at least 8 mm'; wider is not a defect"
+      },
+      {
+        "name": "BoltDia",
+        "source": "alias",
+        "alias": "BoltDia",
+        "expected": 5.5,
+        "tol": 0.05
+      }
     ],
-    "parametric_probe": {"alias": "BearingOD", "delta": 0.5},
-    "print_readiness": {"up_axis": "z", "overhang_deg": 45.0, "max_overhang_area_pct": 20.0}
+    "parametric_probe": {
+      "alias": "BearingOD",
+      "delta": 0.5
+    },
+    "print_readiness": {
+      "up_axis": "z",
+      "overhang_deg": 45.0,
+      "max_overhang_area_pct": 20.0
+    },
+    "functional": {
+      "comment": "Pose is pinned by the task (flat mounting base, printed z-up). The 22 mm bearing bore is deliberately NOT perpendicular to the base, so max_hole_dia_mm selects the M5 mounting holes only.",
+      "mounting_axis": "z",
+      "hole_axis_tol_deg": 10.0,
+      "min_hole_count": 2,
+      "min_hole_dia_mm": 4.0,
+      "max_hole_dia_mm": 8.0
+    }
   }
 }
