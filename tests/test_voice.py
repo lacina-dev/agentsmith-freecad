@@ -69,11 +69,21 @@ class TranscribeArgsTests(unittest.TestCase):
         args = voice.transcribe_args("/usr/bin/whisper-cli", "/m.bin", "/a.wav")
         self.assertIn("-nt", args)     # no timestamps
         self.assertIn("-np", args)     # no progress chatter
-        self.assertEqual(args[args.index("-l") + 1], "cs")
+        # Default is whisper's own language detection: dictation must work in
+        # Czech, English or anything else without a setting.
+        self.assertEqual(args[args.index("-l") + 1], "auto")
 
     def test_language_is_selectable(self):
         args = voice.transcribe_args("/w", "/m.bin", "/a.wav", language="en")
         self.assertEqual(args[args.index("-l") + 1], "en")
+
+    def test_language_env_override(self):
+        os.environ["AGENTSMITH_WHISPER_LANG"] = "cs"
+        try:
+            args = voice.transcribe_args("/w", "/m.bin", "/a.wav")
+            self.assertEqual(args[args.index("-l") + 1], "cs")
+        finally:
+            del os.environ["AGENTSMITH_WHISPER_LANG"]
 
 
 class CleanTranscriptTests(unittest.TestCase):
@@ -145,7 +155,7 @@ class TranscribeTests(unittest.TestCase):
             with self.assertRaises(voice.VoiceUnavailable) as caught:
                 voice.transcribe(empty.name, binary="/w", model="/m.bin",
                                  runner=lambda cmd: Result())
-            self.assertIn("prázdná", str(caught.exception))
+            self.assertIn("empty", str(caught.exception))
         finally:
             os.unlink(empty.name)
 
@@ -201,7 +211,7 @@ class SilenceTests(unittest.TestCase):
             voice.transcribe(self.make_wav(0), binary="/w", model="/m.bin",
                              runner=lambda cmd: asked.append(cmd) or Result(
                                  stdout=b"Titulky vytvoril JohnyX."))
-        self.assertIn("tich", str(caught.exception))
+        self.assertIn("silent", str(caught.exception))
         self.assertEqual(asked, [], "whisper must not be asked about silence")
 
     def test_flat_zero_suggests_a_muted_input(self):
@@ -211,13 +221,13 @@ class SilenceTests(unittest.TestCase):
         with self.assertRaises(voice.VoiceUnavailable) as caught:
             voice.transcribe(self.make_wav(0), binary="/w", model="/m.bin",
                              runner=lambda cmd: Result())
-        self.assertIn("ztlumen", str(caught.exception))
+        self.assertIn("muted", str(caught.exception))
 
     def test_quiet_room_does_not_blame_the_mute_switch(self):
         with self.assertRaises(voice.VoiceUnavailable) as caught:
             voice.transcribe(self.make_wav(20), binary="/w", model="/m.bin",
                              runner=lambda cmd: Result())
-        self.assertNotIn("ztlumen", str(caught.exception))
+        self.assertNotIn("muted", str(caught.exception))
 
     def test_room_tone_is_still_refused(self):
         with self.assertRaises(voice.VoiceUnavailable):
@@ -273,7 +283,7 @@ class AvailabilityTests(unittest.TestCase):
         report = voice.availability(self.dir)
         self.assertFalse(report["ready"])
         self.assertEqual(len(report["problems"]), 2)     # recorder + whisper
-        self.assertTrue(any("nahrávání" in p for p in report["problems"]))
+        self.assertTrue(any("recording" in p for p in report["problems"]))
         self.assertTrue(any("whisper" in p for p in report["problems"]))
 
     def test_missing_model_is_reported_only_once_whisper_exists(self):
@@ -325,7 +335,7 @@ class ModelChoiceTests(unittest.TestCase):
 
     def test_install_hint_mentions_privacy_and_sizes(self):
         hint = voice.install_hint(self.dir)
-        self.assertIn("neodchází", hint)
+        self.assertIn("never leaves", hint)
         self.assertIn("MB", hint)
 
 

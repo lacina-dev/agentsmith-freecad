@@ -8,127 +8,127 @@
   "playbooks": [
     {
       "id": "parametrics",
-      "label": "Parametrická robustnost",
+      "label": "Parametric robustness",
       "file": "parametrics.md",
       "trigger": "always — every model must stay a robust, editable, single watertight parametric solid"
     },
     {
       "id": "verify",
-      "label": "Kontrola kvality (QA)",
+      "label": "Quality assurance (QA)",
       "file": "verify.md",
       "trigger": "always — run the QA checklist before declaring the task done"
     },
     {
       "id": "model",
-      "label": "Modelování nového tvaru",
+      "label": "Modeling a new shape",
       "file": "model.md",
       "trigger": "you are turning a description into new geometry"
     },
     {
       "id": "fix",
-      "label": "Oprava / doladění",
+      "label": "Fixing / fine-tuning",
       "file": "fix.md",
       "trigger": "you are correcting a defect in an existing model"
     },
     {
       "id": "reference_dimensions",
-      "label": "Rozměry běžných předmětů",
+      "label": "Reference dimensions of everyday objects",
       "file": "reference-dimensions.md",
       "trigger": "the part holds, carries, mounts or mates with a real-world object (a roll, a phone, a board, a bearing, a cable) — including objects you believe you already know the size of"
     },
     {
       "id": "research",
-      "label": "Rešerše rozměrů",
+      "label": "Dimension research",
       "file": "research.md",
       "trigger": "the spec references a real object/standard whose dimensions must be looked up"
     },
     {
       "id": "reference",
-      "label": "Rešerše tvaru a funkce",
+      "label": "Shape & function references",
       "file": "reference.md",
       "trigger": "the request names a real-world object/product/mechanism whose shape/function should be grounded in references (proportions, topology, functional interfaces) — distinct from research, which grounds dimensions"
     },
     {
       "id": "patterns",
-      "label": "Knihovna vzorů",
+      "label": "Pattern library",
       "file": "patterns.md",
       "trigger": "the part uses a recurring mechanical feature (threaded boss, snap-fit, rib/gusset, heat-set insert, hinge clearance, screw counterbore) — index of on-demand micro-recipes under patterns/"
     },
     {
       "id": "print3d",
-      "label": "3D tisk (FDM/FFF)",
+      "label": "3D printing (FDM/FFF)",
       "file": "print3d.md",
       "trigger": "the part will be 3D printed by filament — design it support-minimal"
     },
     {
       "id": "design",
-      "label": "Design a ergonomie",
+      "label": "Design & ergonomics",
       "file": "design.md",
       "trigger": "always for parts a person sees, holds, or operates — edge treatment, grip and clearance ergonomics, proportion/radius language, stability, cosmetic surfaces and labels"
     },
     {
       "id": "manufacture",
-      "label": "Výroba (slice / tisk)",
+      "label": "Manufacturing (slice / print)",
       "file": "manufacture.md",
-      "trigger": "the request asks to slice, print, or send the model to a printer ('naslicuj', 'vytiskni', 'pošli na tiskárnu'), alone or combined with modeling in one request"
+      "trigger": "the request asks to slice, print, or send the model to a printer (in any language: 'slice it', 'print this', 'naslicuj', 'vytiskni'), alone or combined with modeling in one request"
     },
     {
       "id": "materials",
-      "label": "Materiály",
+      "label": "Materials",
       "file": "materials.md",
       "trigger": "always when the part will be manufactured — pick and state the material early; mandatory for 3D-printed or load-bearing parts"
     },
     {
       "id": "mechanics",
-      "label": "Mechanika / dimenzování",
+      "label": "Mechanics / sizing",
       "file": "mechanics.md",
       "trigger": "the part carries load, transmits force/torque, or deflects — size it with numbers, not vibes"
     },
     {
       "id": "strength",
-      "label": "Pevnostní návrh",
+      "label": "Strength design",
       "file": "strength.md",
       "trigger": "the part carries structural or dynamic load and must be strong enough"
     },
     {
       "id": "tolerances",
-      "label": "Tolerance / uložení",
+      "label": "Tolerances / fits",
       "file": "tolerances.md",
       "trigger": "parts must fit together or a functional dimension must hold a tolerance"
     },
     {
       "id": "assembly",
-      "label": "Sestava / rozhraní dílů",
+      "label": "Assemblies / part interfaces",
       "file": "assembly.md",
       "trigger": "the design has multiple parts that must fit, move or mate"
     },
     {
       "id": "fasteners",
-      "label": "Spojovací prvky / závity",
+      "label": "Fasteners / threads",
       "file": "fasteners.md",
       "trigger": "the design uses screws, threads, inserts, bosses or snap-fits"
     },
     {
       "id": "workbenches",
-      "label": "Reálný spojovací materiál a ozubení",
+      "label": "Real fasteners & gears (workbenches)",
       "file": "workbenches.md",
       "trigger": "the design is an assembly where real screws/nuts/threaded rod should be shown, or it involves gears — not only printed parts"
     },
     {
       "id": "enclosures",
-      "label": "Krabičky / kryty",
+      "label": "Enclosures / covers",
       "file": "enclosures.md",
       "trigger": "the part is a housing, box or enclosure"
     },
     {
       "id": "molding",
-      "label": "Vstřikování (DfM)",
+      "label": "Injection molding (DfM)",
       "file": "molding.md",
       "trigger": "the part will be injection moulded"
     },
     {
       "id": "sheetmetal",
-      "label": "Plech",
+      "label": "Sheet metal",
       "file": "sheetmetal.md",
       "trigger": "the part is made from bent sheet metal"
     }

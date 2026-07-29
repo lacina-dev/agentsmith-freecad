@@ -277,7 +277,7 @@ class IdentifyByEvidenceTests(unittest.TestCase):
         self.assertEqual(result["kind"], "prusalink")
         self.assertFalse(result["kind_verified"])
         self.assertEqual(result["state"], pd.PrinterState.RESPONDING)
-        self.assertIn("neověřen", result["note"])
+        self.assertIn("unverified", result["note"])
 
     def test_mdns_service_type_is_trusted_without_re_deriving_it(self):
         # mDNS already answered the question: _prusalink._tcp IS the identity,
@@ -451,11 +451,11 @@ class BookPassthroughTests(unittest.TestCase):
     def test_identity_mismatch_reaches_the_panel(self):
         rows = pd.merge_with_config(self.CONFIG, [{
             "address": "192.168.0.170", "state": pd.PrinterState.UNREACHABLE,
-            "identity": "mismatch", "note": "na této adrese je něco jiného",
+            "identity": "mismatch", "note": "something else is at this address",
             "remembered": True, "book_id": "hostname:x", "label": "Prusa"}])
         row = [r for r in rows if r["key"] == "core_one"][0]
         self.assertEqual(row["identity"], "mismatch")
-        self.assertIn("něco jiného", row["note"])
+        self.assertIn("something else", row["note"])
 
     def test_a_remembered_machine_is_not_told_it_is_unconfigured(self):
         rows = pd.merge_with_config({}, [{
@@ -467,7 +467,7 @@ class BookPassthroughTests(unittest.TestCase):
     def test_a_genuine_stranger_still_gets_the_hint(self):
         rows = pd.merge_with_config({}, [{
             "address": "10.0.0.4", "state": pd.PrinterState.FOUND, "kind": "prusalink"}])
-        self.assertIn("není v konfiguraci", rows[0]["note"])
+        self.assertIn("not in the config", rows[0]["note"])
 
 
 class SuggestedEntryTests(unittest.TestCase):

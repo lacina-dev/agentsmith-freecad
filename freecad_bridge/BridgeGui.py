@@ -63,7 +63,7 @@ class TranscribeWorker(QtCore.QThread):
         except agentsmith_voice.VoiceUnavailable as exc:
             self.failed.emit(str(exc))
         except Exception as exc:
-            self.failed.emit("Přepis selhal: %s" % exc)
+            self.failed.emit("Transcription failed: %s" % exc)
         finally:
             try:
                 os.unlink(self.wav_path)     # the audio is not kept around
@@ -107,7 +107,7 @@ class ModelDownloadWorker(QtCore.QThread):
                         self.progressed.emit(got, total)
             if self._cancelled:
                 os.unlink(partial)
-                self.failed.emit("Stahování zrušeno.")
+                self.failed.emit("Download cancelled.")
                 return
             # Renamed only once complete: a half-downloaded model that looks
             # installed would fail later with a confusing whisper.cpp error.
@@ -179,7 +179,7 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
         self.log.setMaximumHeight(90)
         bridge_layout.addWidget(self.log)
         self.bridge_details = QtWidgets.QToolButton()
-        self.bridge_details.setText("Zobrazit technické detaily")
+        self.bridge_details.setText("Show technical details")
         self.bridge_details.setCheckable(True)
         self.bridge_details.toggled.connect(self._toggle_bridge_details)
         bridge_layout.addWidget(self.bridge_details)
@@ -191,16 +191,16 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
         self.codex_output.setReadOnly(True)
         self.codex_output.setMaximumBlockCount(1000)
         self.codex_prompt = QtWidgets.QPlainTextEdit()
-        self.codex_prompt.setPlaceholderText("Napiš, co má asistent v otevřeném FreeCAD modelu udělat…")
+        self.codex_prompt.setPlaceholderText("Describe what the assistant should do in the open FreeCAD model…")
         self.codex_prompt.setMaximumHeight(110)
 
         # Dictation. The transcript lands in the box above and is NEVER sent on
         # its own: a misheard dimension would otherwise launch an autonomous run
         # against the live document with nobody having read the sentence.
-        self.dictate_button = QtWidgets.QPushButton("🎤 Diktovat")
+        self.dictate_button = QtWidgets.QPushButton("🎤 Dictate")
         self.dictate_button.setToolTip(
-            "Nahraje mikrofon a přepíše ho lokálně (whisper.cpp).\n"
-            "Zvuk nikam neodchází. Přepis se vloží do pole — odeslání mačkáš ty.")
+            "Records the microphone and transcribes it locally (whisper.cpp).\n"
+            "The audio never leaves this machine. The transcript lands in the box — you press Send.")
         self.dictate_button.clicked.connect(self._toggle_dictation)
         self.dictate_status = QtWidgets.QLabel("")
         self.dictate_status.setStyleSheet("color: #888;")
@@ -217,7 +217,7 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
         dictate_row.addWidget(self.dictate_button)
         dictate_row.addWidget(self.dictate_status, 1)
         self.reference_input = QtWidgets.QPlainTextEdit()
-        self.reference_input.setPlaceholderText("Reference (nepovinné): cesty k obrázkům nebo URL, každá na řádek…")
+        self.reference_input.setPlaceholderText("References (optional): image paths or URLs, one per line…")
         self.reference_input.setMaximumHeight(54)
         self.backend = QtWidgets.QComboBox()
         self.model = QtWidgets.QComboBox()
@@ -235,7 +235,7 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
             pass
         self.backends = self._detect_backends()
         for backend_id, backend in self.backends.items():
-            label = "%s  ·  %s" % (backend["label"], backend["version"] or "nenalezeno")
+            label = "%s  ·  %s" % (backend["label"], backend["version"] or "not found")
             self.backend.addItem(label, backend_id)
             if not backend["available"]:
                 self.backend.model().item(self.backend.count() - 1).setEnabled(False)
@@ -246,14 +246,14 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
         self.backend.currentIndexChanged.connect(self._backend_changed)
         self.model.currentIndexChanged.connect(self._model_changed)
         self.budget_choice = QtWidgets.QComboBox()
-        self.budget_choice.setToolTip("Časový rozpočet úlohy. Po jeho vyčerpání watchdog backend ukončí a dokument vrátí zpět.")
+        self.budget_choice.setToolTip("Time budget for the task. Once it runs out the watchdog kills the backend and rolls the document back.")
         for budget_label, budget_seconds in (
-            ("Rychlá úprava (8 min)", 480),
-            ("Nový díl (15 min)", 900),
-            ("Sestava (25 min)", 1500),
-            ("Složitý díl (30 min)", 1800),
-            ("Velká sestava (45 min)", 2700),
-            ("Maraton (60 min)", 3600),
+            ("Quick edit (8 min)", 480),
+            ("New part (15 min)", 900),
+            ("Assembly (25 min)", 1500),
+            ("Complex part (30 min)", 1800),
+            ("Large assembly (45 min)", 2700),
+            ("Marathon (60 min)", 3600),
         ):
             self.budget_choice.addItem(budget_label, budget_seconds)
         saved_budget = self.preferences.GetString("TaskBudgetSeconds", str(LIVE_EDIT_BUDGET_SECONDS))
@@ -263,42 +263,44 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
         self.budget_choice.currentIndexChanged.connect(self._persist_budget)
         self.reviewer_enabled = QtWidgets.QCheckBox("Reviewer")
         self.reviewer_enabled.setToolTip(
-            "Po úspěšné úloze spustí nezávislý read-only ověřovací průchod: druhý agent porovná "
-            "výsledek se zadáním a referencemi a vypíše verdikt (poradní, dokument nemění).")
+            "After a successful task, runs an independent read-only verification pass: a second agent "
+            "compares the result against the brief and the references and prints a verdict "
+            "(advisory; it never changes the document).")
         self.reviewer_enabled.setChecked(self.preferences.GetString("ReviewerPass", "0") == "1")
         self.reviewer_enabled.toggled.connect(self._persist_reviewer)
-        self.autofix_enabled = QtWidgets.QCheckBox("Auto-oprava")
+        self.autofix_enabled = QtWidgets.QCheckBox("Auto-fix")
         self.autofix_enabled.setToolTip(
-            "Když reviewer skončí verdiktem CONCERNS, spustí se automaticky JEDNO opravné kolo "
-            "workera s nálezy reviewera v zadání. Opravné kolo už další auto-opravu nespouští.")
+            "When the reviewer ends with a CONCERNS verdict, ONE fix-up round of the worker is "
+            "started automatically with the reviewer findings in the brief. A fix-up round never "
+            "triggers another auto-fix.")
         self.autofix_enabled.setChecked(self.preferences.GetString("ReviewerAutofix", "0") == "1")
         self.autofix_enabled.toggled.connect(self._persist_autofix)
         self.autofix_rounds = QtWidgets.QComboBox()
         self.autofix_rounds.setToolTip(
-            "Nejvyšší počet opravných kol. Smyčka se stejně obvykle zastaví dřív sama — "
-            "jakmile reviewer začne opakovat tytéž nálezy, další kolo je jen spálený "
-            "rozpočet. Tohle je pojistka pro případ, kdy každé kolo najde něco nového.")
+            "Maximum number of fix-up rounds. The loop usually stops earlier on its own — "
+            "once the reviewer starts repeating the same findings, another round is just burnt "
+            "budget. This is the backstop for the case where every round finds something new.")
         for rounds in (1, 2, 3, 5):
-            self.autofix_rounds.addItem("max %d kolo/kol" % rounds, rounds)
+            self.autofix_rounds.addItem("max %d round(s)" % rounds, rounds)
         saved_rounds = self.preferences.GetString("AutofixMaxRounds", "2")
         rounds_index = self.autofix_rounds.findData(int(saved_rounds)) if str(saved_rounds).isdigit() else -1
         self.autofix_rounds.setCurrentIndex(rounds_index if rounds_index >= 0 else 1)
         self.autofix_rounds.currentIndexChanged.connect(self._persist_autofix_rounds)
         self.escalate_model = QtWidgets.QComboBox()
         self.escalate_model.setToolTip(
-            "Model pro opravné kolo. Model, který na tomhle dílu už jednou selhal, "
-            "dostane posilu místo výzvy, ať to zkusí líp. Prázdné = stejný model.")
+            "Model for the fix-up round. A model that already failed on this part gets "
+            "reinforcements rather than another try. Empty = the same model.")
         self.escalate_model.currentIndexChanged.connect(self._persist_escalate_model)
         self.mcp_enabled = QtWidgets.QCheckBox("MCP")
         self.mcp_enabled.setToolTip(
-            "Dá backendu bridge jako MCP nástroje s typovanými schématy místo volání "
-            "freecad_bridge_client.py přes shell. Odpadá quoting a parsování výstupu a "
-            "backend nemůže vymyslet neexistující příkaz. Výchozí je vypnuto: nasadit se "
-            "má až podle měření proti baseline (viz PLAN.md, fáze 4).")
+            "Gives the backend the bridge as MCP tools with typed schemas instead of shelling "
+            "out to freecad_bridge_client.py. No quoting, no output parsing, and the backend "
+            "cannot invent a command that does not exist. Off by default: turn it on once it "
+            "measures better than the baseline (see PLAN.md, phase 4).")
         self.mcp_enabled.setChecked(self.preferences.GetString("UseMcp", "0") == "1")
         self.mcp_enabled.toggled.connect(self._persist_mcp)
-        self.view_current = QtWidgets.QCheckBox("Aktuální kamera")
-        self.view_current.setToolTip("Pořídit referenční snímek z aktuální pozice kamery (výchozí).")
+        self.view_current = QtWidgets.QCheckBox("Current camera")
+        self.view_current.setToolTip("Capture a reference snapshot from the current camera position (default).")
         self.view_orientation_boxes = {}
         for view_id in CAPTURE_ORIENTATIONS:
             box = QtWidgets.QCheckBox(view_id.capitalize())
@@ -309,13 +311,13 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
         self.view_current.setChecked("current" in saved_views or not saved_views)
         for view_id, box in self.view_orientation_boxes.items():
             box.setChecked(view_id in saved_views)
-        self.codex_full_access = QtWidgets.QCheckBox("Povolit backendu plný lokální přístup pro práci s živým modelem")
-        self.codex_full_access.setToolTip("Nutné pro přístup k localhost bridge. Zapínej pouze pro důvěryhodné modelovací úlohy.")
+        self.codex_full_access = QtWidgets.QCheckBox("Allow the backend full local access for work on the live model")
+        self.codex_full_access.setToolTip("Required for access to the localhost bridge. Enable only for trusted modeling tasks.")
         self.codex_full_access.setChecked(True)
         self.codex_full_access.hide()
         self.codex_supervisor_status = QtWidgets.QLabel("Supervisor: idle")
         self.codex_supervisor_status.setWordWrap(True)
-        self.task_status = QtWidgets.QLabel("Připraveno")
+        self.task_status = QtWidgets.QLabel("Ready")
         self.task_status.setAlignment(QtCore.Qt.AlignCenter)
         self.task_elapsed = QtWidgets.QLabel("")
         self.task_progress = QtWidgets.QProgressBar()
@@ -334,25 +336,25 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
         self.file_guard_timer.timeout.connect(self._check_task_guard)
         self.task_started_monotonic = None
         self.task_stop_requested = False
-        self._set_task_state("idle", "Připraveno")
-        self.codex_run = QtWidgets.QPushButton("Odeslat")
+        self._set_task_state("idle", "Ready")
+        self.codex_run = QtWidgets.QPushButton("Send")
         self.codex_run.clicked.connect(self._run_codex)
         self.codex_stop = QtWidgets.QPushButton("Stop")
         self.codex_stop.setEnabled(False)
         self.codex_stop.clicked.connect(self._stop_codex)
         self.history_choice = QtWidgets.QComboBox()
         self.history_choice.setMinimumWidth(220)
-        self.history_restore = QtWidgets.QPushButton("Vrátit před tento krok")
+        self.history_restore = QtWidgets.QPushButton("Roll back to before this step")
         self.history_restore.clicked.connect(self._restore_history_step)
-        self.lesson_button = QtWidgets.QPushButton("Zapsat lekci")
+        self.lesson_button = QtWidgets.QPushButton("Record lesson")
         self.lesson_button.setToolTip(
-            "Z posledního selhání nebo verdiktu CONCERNS navrhne jeden záznam do "
-            "harness/lessons.md. Návrh uvidíš a potvrdíš — bez potvrzení se do souboru "
-            "nic nezapíše, protože modelovací agent bere lessons.md jako závazné.")
+            "Drafts one entry for harness/lessons.md out of the last failure or CONCERNS "
+            "verdict. You see the draft and confirm it — nothing is written without "
+            "confirmation, because the modeling agent treats lessons.md as binding.")
         self.lesson_button.setEnabled(False)
         self.lesson_button.clicked.connect(self._draft_lesson)
         self._lesson_source = None
-        self.history_label = QtWidgets.QLabel("Historie: bez uložených kroků")
+        self.history_label = QtWidgets.QLabel("History: no saved steps")
         history_row = QtWidgets.QHBoxLayout()
         history_row.addWidget(self.history_label)
         history_row.addWidget(self.history_choice, 1)
@@ -381,7 +383,7 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
         reference_row = QtWidgets.QHBoxLayout()
         reference_row.addWidget(QtWidgets.QLabel("Reference"))
         reference_row.addWidget(self.reference_input, 1)
-        reference_row.addWidget(QtWidgets.QLabel("Rozpočet"))
+        reference_row.addWidget(QtWidgets.QLabel("Budget"))
         reference_row.addWidget(self.budget_choice)
         reference_row.addWidget(self.reviewer_enabled)
         reference_row.addWidget(self.autofix_enabled)
@@ -390,7 +392,7 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
         reference_row.addWidget(self.mcp_enabled)
         codex_layout.addLayout(reference_row)
         views_row = QtWidgets.QHBoxLayout()
-        views_row.addWidget(QtWidgets.QLabel("Snímky:"))
+        views_row.addWidget(QtWidgets.QLabel("Snapshots:"))
         views_row.addWidget(self.view_current)
         for view_id in CAPTURE_ORIENTATIONS:
             views_row.addWidget(self.view_orientation_boxes[view_id])
@@ -455,26 +457,26 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
         self.recorder_process = QtCore.QProcess(self)
         self.recorder_process.start(args[0], args[1:])
         if not self.recorder_process.waitForStarted(3000):
-            self.dictate_status.setText("Nahrávání se nespustilo (%s)." % args[0])
+            self.dictate_status.setText("Recording did not start (%s)." % args[0])
             self.recorder_process = None
             return
-        self.dictate_button.setText("⏹ Zastavit")
+        self.dictate_button.setText("⏹ Stop")
         self.recording_blink.start()
         self._log("Dictation: recording via %s" % os.path.basename(args[0]))
 
     def _blink_recording(self):
         # A thing that can listen must visibly show that it is listening.
         self._blink_on = not self._blink_on
-        self.dictate_status.setText("● nahrávám…" if self._blink_on else "  nahrávám…")
+        self.dictate_status.setText("● recording…" if self._blink_on else "  recording…")
         self.dictate_status.setStyleSheet("color: #c62828; font-weight: bold;")
 
     def _stop_recording(self):
         process, self.recorder_process = self.recorder_process, None
         self.recording_blink.stop()
-        self.dictate_button.setText("🎤 Diktovat")
+        self.dictate_button.setText("🎤 Dictate")
         self.dictate_button.setEnabled(False)
         self.dictate_status.setStyleSheet("color: #888;")
-        self.dictate_status.setText("přepisuji…")
+        self.dictate_status.setText("transcribing…")
         if process is not None:
             process.terminate()
             if not process.waitForFinished(4000):
@@ -488,7 +490,7 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
     def _dictation_done(self, text):
         self.dictate_button.setEnabled(True)
         if not text:
-            self.dictate_status.setText("nic jsem nerozuměl")
+            self.dictate_status.setText("nothing was understood")
             return
         # Appended to whatever is already typed, and left for the user to read.
         # Sending it automatically would let a misheard dimension start a run.
@@ -499,7 +501,7 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
         cursor = self.codex_prompt.textCursor()
         cursor.movePosition(QtGui.QTextCursor.End)
         self.codex_prompt.setTextCursor(cursor)
-        self.dictate_status.setText("přepsáno — zkontroluj a odešli")
+        self.dictate_status.setText("transcribed — check it and send")
 
     def _dictation_failed(self, message):
         self.dictate_button.setEnabled(True)
@@ -509,13 +511,13 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
     def _offer_voice_setup(self, report):
         """Explain what is missing, and offer the one step we can take here."""
         box = QtWidgets.QMessageBox(self)
-        box.setWindowTitle("Hlasové zadání není nastavené")
+        box.setWindowTitle("Voice input is not set up")
         box.setText("\n".join(report["problems"]))
         box.setDetailedText(agentsmith_voice.install_hint())
         download = None
         if report["binary"] and not report["model"]:
-            download = box.addButton("Stáhnout model…", QtWidgets.QMessageBox.AcceptRole)
-        box.addButton("Zavřít", QtWidgets.QMessageBox.RejectRole)
+            download = box.addButton("Download a model…", QtWidgets.QMessageBox.AcceptRole)
+        box.addButton("Close", QtWidgets.QMessageBox.RejectRole)
         box.exec_()
         if download is not None and box.clickedButton() is download:
             self._download_model()
@@ -524,19 +526,19 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
         choices = ["%s — %d MB (%s)" % (label, size, note)
                    for _name, label, size, note in agentsmith_voice.MODELS]
         choice, ok = QtWidgets.QInputDialog.getItem(
-            self, "Stáhnout model", "Pro češtinu doporučuju první:", choices, 0, False)
+            self, "Download a model", "For Czech the first one is recommended:", choices, 0, False)
         if not ok:
             return
         name = agentsmith_voice.MODELS[choices.index(choice)][0]
         self.model_worker = ModelDownloadWorker(name, agentsmith_voice.MODEL_DIR, self)
         self.model_worker.progressed.connect(
             lambda got, total: self.dictate_status.setText(
-                "stahuji model… %d %%" % (100 * got // total) if total
-                else "stahuji model… %d MB" % (got // 1048576)))
+                "downloading the model… %d %%" % (100 * got // total) if total
+                else "downloading the model… %d MB" % (got // 1048576)))
         self.model_worker.done.connect(
-            lambda path: self.dictate_status.setText("model stažen — můžeš diktovat"))
+            lambda path: self.dictate_status.setText("model downloaded — dictation is ready"))
         self.model_worker.failed.connect(
-            lambda message: self.dictate_status.setText("stažení selhalo: %s" % message))
+            lambda message: self.dictate_status.setText("download failed: %s" % message))
         self.model_worker.start()
 
     def _toggle(self):
@@ -552,7 +554,7 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
         self.python_box.setVisible(visible)
         self.bridge_activity_label.setVisible(visible)
         self.log.setVisible(visible)
-        self.bridge_details.setText("Skrýt technické detaily" if visible else "Zobrazit technické detaily")
+        self.bridge_details.setText("Hide technical details" if visible else "Show technical details")
 
     def _python_changed(self, enabled):
         self.server.allow_python = enabled
@@ -812,7 +814,7 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
             force = True
             show_chat = True
             self.codex_supervisor_status.setText("Supervisor: idle")
-            self._set_task_state("idle", "Připraveno")
+            self._set_task_state("idle", "Ready")
             self.task_elapsed.setText("")
         if not force and path == self.loaded_history_path:
             return
@@ -827,22 +829,22 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
             label = "%s · %s" % (stamp, str(item.get("prompt", ""))[:80])
             self.history_choice.addItem(label, item)
         del blocker
-        self.history_label.setText("Historie: %d kroků" % len(successful))
+        self.history_label.setText("History: %d steps" % len(successful))
         self.history_choice.setEnabled(bool(successful) and not self.codex_task)
         self.history_restore.setEnabled(bool(successful) and not self.codex_task)
         if show_chat:
             self.codex_output.clear()
             if not doc:
-                self.codex_output.appendPlainText("Žádný otevřený dokument. Otevři nebo vytvoř .FCStd model.")
+                self.codex_output.appendPlainText("No document is open. Open or create an .FCStd model.")
             elif not (doc and doc.FileName):
-                self.codex_output.appendPlainText("Nový neuložený dokument „%s“ — zatím bez historie. Ulož ho jako .FCStd a začni chatovat." % doc.Label)
+                self.codex_output.appendPlainText("New unsaved document \u201c%s\u201d — no history yet. Save it as .FCStd and start chatting." % doc.Label)
             elif not entries:
-                self.codex_output.appendPlainText("Dokument „%s“ — zatím bez historie. Napiš první úlohu." % doc.Label)
+                self.codex_output.appendPlainText("Document \u201c%s\u201d — no history yet. Write the first task." % doc.Label)
             else:
-                self.codex_output.appendPlainText("Načten kontext dokumentu „%s“: %d záznamů, %d úspěšných změn.\n" % (doc.Label, len(entries), len(successful)))
+                self.codex_output.appendPlainText("Loaded the context of document \u201c%s\u201d: %d entries, %d successful changes.\n" % (doc.Label, len(entries), len(successful)))
                 for item in entries[-8:]:
                     marker = "✓" if item.get("status") == "success" else "✗"
-                    self.codex_output.appendPlainText("%s %s" % (marker, item.get("prompt", "bez popisu")))
+                    self.codex_output.appendPlainText("%s %s" % (marker, item.get("prompt", "no description")))
 
     def _history_context(self, file_name):
         entries = self._read_document_history(file_name)
@@ -879,7 +881,7 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
             return
         checkpoint = item.get("checkpoint_before")
         if not _fcstd_archive_valid(checkpoint):
-            QtWidgets.QMessageBox.critical(self, "Checkpoint není dostupný", "Uložený bod nelze otevřít nebo je poškozený.")
+            QtWidgets.QMessageBox.critical(self, "Checkpoint unavailable", "The saved point cannot be opened or is corrupt.")
             return
         canonical = os.path.abspath(doc.FileName)
         with open(checkpoint, "rb") as handle:
@@ -890,7 +892,7 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
         restored.recompute()
         Gui.activeDocument().activeView().viewAxonometric()
         Gui.activeDocument().activeView().fitAll()
-        record = {"status": "restored", "finished": time.time(), "prompt": "Návrat před krok: " + item.get("prompt", ""),
+        record = {"status": "restored", "finished": time.time(), "prompt": "Rolled back to before: " + item.get("prompt", ""),
                   "restored_from": checkpoint, "target_task_id": item.get("task_id")}
         self._append_document_history(canonical, record)
         self._refresh_document_history(True, True)
@@ -910,7 +912,7 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
                     completed = subprocess.run([path, "--version"], capture_output=True, text=True, timeout=3)
                     version = (completed.stdout or completed.stderr).strip().splitlines()[0]
                 except Exception:
-                    version = "verze neznámá"
+                    version = "version unknown"
             detected[backend_id] = {"label": label, "command": path, "version": version, "available": bool(path)}
         return detected
 
@@ -923,7 +925,7 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
         for model_id, label in self._models_for_backend(backend_id):
             self.model.addItem(label, model_id)
         # No saved choice yet → the backend's recommended modeling model, not the
-        # first entry ("Výchozí / Auto"), which leaves the model up to the CLI.
+        # first entry ("Default / Auto"), which leaves the model up to the CLI.
         saved_model = self.preferences.GetString(
             "Model_" + str(backend_id), DEFAULT_MODELS.get(backend_id, ""))
         model_index = self.model.findData(saved_model)
@@ -932,7 +934,7 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
 
         escalate_blocker = QtCore.QSignalBlocker(self.escalate_model)
         self.escalate_model.clear()
-        self.escalate_model.addItem("Bez eskalace", "")
+        self.escalate_model.addItem("No escalation", "")
         for model_id, label in self._models_for_backend(backend_id):
             if model_id:
                 self.escalate_model.addItem(label, model_id)
@@ -941,7 +943,7 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
         self.escalate_model.setCurrentIndex(escalate_index if escalate_index >= 0 else 0)
         del escalate_blocker
 
-        self.codex_run.setText("Odeslat přes %s" % backend.get("label", "backend"))
+        self.codex_run.setText("Send via %s" % backend.get("label", "backend"))
 
 
 
@@ -954,7 +956,7 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
             self.preferences.SetString("Model_" + str(backend_id), str(self.model.currentData() or ""))
 
     def _models_for_backend(self, backend_id):
-        models = [("", "Výchozí / Auto")]
+        models = [("", "Default / Auto")]
         try:
             if backend_id == "codex":
                 home = App.ConfigGet("UserHomePath")
@@ -974,10 +976,10 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
                 # expensive run and which generation produced a result matters when the
                 # eval baseline is compared later. Ordered strongest-for-modeling first.
                 models.extend([
-                    ("claude-opus-5", "Opus 5 · výchozí pro modelování"),
-                    ("claude-fable-5", "Fable 5 · nejnáročnější úlohy"),
-                    ("claude-sonnet-5", "Sonnet 5 · rychlejší a levnější"),
-                    ("claude-haiku-4-5", "Haiku 4.5 · jen triviální úlohy"),
+                    ("claude-opus-5", "Opus 5 · default for modeling"),
+                    ("claude-fable-5", "Fable 5 · the hardest tasks"),
+                    ("claude-sonnet-5", "Sonnet 5 · faster and cheaper"),
+                    ("claude-haiku-4-5", "Haiku 4.5 · trivial tasks only"),
                 ])
             elif backend_id == "copilot":
                 completed = subprocess.run([self.backends[backend_id]["command"], "help", "config"], capture_output=True, text=True, timeout=8)

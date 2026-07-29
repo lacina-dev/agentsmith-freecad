@@ -63,7 +63,7 @@ def build_index(playbooks):
     return "\n".join(lines)
 
 
-def assemble_harness(harness_dir, label_template="úplný harness (%d playbooků)",
+def assemble_harness(harness_dir, label_template="full harness (%d playbooks)",
                      warn=None, registry=None):
     """Assemble the full harness text: always-included files, then the generated
     index, then every playbook body.

@@ -131,7 +131,7 @@ class FileIO(unittest.TestCase):
         after = self.write("after.json", [record("hook", {"validate": "fail"})])
         with contextlib.redirect_stdout(io.StringIO()) as out:
             self.assertEqual(compare.main([before, after]), 1)
-        self.assertIn("regrese", out.getvalue())
+        self.assertIn("regression", out.getvalue())
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(compare.main([before, before]), 0)
 

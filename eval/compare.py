@@ -178,16 +178,16 @@ def format_markdown(tasks, labels):
         lines.append("| check | A | B | |")
         lines.append("|---|:--:|:--:|---|")
         for check in task["checks"]:
-            marker = {"regressed": "**regrese**", "fixed": "zlepšení",
-                      "added": "nový", "removed": "zmizel",
-                      "skipped": "přeskočeno", "same": ""}[check["delta"]]
+            marker = {"regressed": "**regression**", "fixed": "improved",
+                      "added": "new", "removed": "gone",
+                      "skipped": "skipped", "same": ""}[check["delta"]]
             lines.append("| %s | %s | %s | %s |" % (
                 check["check"], _cell(check["before"]), _cell(check["after"]), marker))
         lines.append("")
 
     regressed = sum(len(task["regressed"]) for task in tasks)
     fixed = sum(len(task["fixed"]) for task in tasks)
-    lines.append("**Souhrn:** %d zlepšení, %d regresí napříč %d úloha(mi)."
+    lines.append("**Summary:** %d improved, %d regressed across %d task(s)."
                  % (fixed, regressed, len(tasks)))
     return "\n".join(lines)
 

@@ -23,7 +23,7 @@ def classify(**overrides):
         "validation_ok": True,
         "bridge_events": 7,
         "observed_mutations": 3,
-        "assistant_text": "Hotovo, upravil jsem WallThickness na 2.4 mm.",
+        "assistant_text": "Done, I changed WallThickness to 2.4 mm.",
     }
     args.update(overrides)
     return sup.classify_outcome(**args)
@@ -118,7 +118,7 @@ class ClassifyActionOnly(unittest.TestCase):
 
     def test_no_marker_means_no_exemption(self):
         verdict = classify(changed=False, observed_mutations=0,
-                           assistant_text="Naslicoval jsem to, hotovo.")
+                           assistant_text="Sliced it, done.")
         self.assertFalse(verdict["action_only"])
         self.assertEqual(verdict["status"], "failed")
 

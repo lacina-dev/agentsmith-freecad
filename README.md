@@ -245,7 +245,11 @@ Environment overrides, if your layout differs: `AGENTSMITH_WHISPER_BIN`,
 3. Describe the part. Be specific about what it must *do*; the harness turns
    function into geometry, but it cannot guess the function.
 4. Optionally add reference images (paths or URLs, one per line) in **Reference**.
-5. **Odeslat**.
+5. **Send**.
+
+Prompts work in any language — Czech, English, whatever the backend model
+speaks; the agent replies in the language you asked in. The panel itself and all
+status/error messages are English.
 
 While it runs you get a live log, a supervisor status line and a progress
 readout. On failure the document is rolled back to the checkpoint taken before
@@ -255,49 +259,53 @@ Panel controls worth knowing:
 
 | Control | What it does |
 |---|---|
-| **Rozpočet** | Wall-clock budget; the watchdog stops a task that overruns |
+| **Budget** | Wall-clock budget; the watchdog stops a task that overruns |
 | **Reviewer** | An independent read-only pass that grades the result afterwards |
-| **Auto-oprava** | Lets the agent fix what the reviewer found, up to N rounds |
-| **Bez eskalace** | Optionally retry a failed round on a stronger model |
+| **Auto-fix** | Lets the agent fix what the reviewer found, up to N rounds |
+| **No escalation** | Optionally retry a failed round on a stronger model |
 | **MCP** | Expose the bridge as typed MCP tools instead of the CLI wrapper |
-| **Snímky** | Which views are captured as visual context |
-| **Zapsat lekci** | Turn a failure into a permanent harness lesson |
+| **Snapshots** | Which views are captured as visual context |
+| **Record lesson** | Turn a failure into a permanent harness lesson |
 
 ### Voice
 
-Press **🎤 Diktovat**, speak, press **⏹ Zastavit**. The transcript is appended to
+Press **🎤 Dictate**, speak, press **⏹ Stop**. The transcript is appended to
 the prompt box — **it is never sent automatically**. A misheard dimension would
 otherwise start an autonomous run against your live document.
+
+Dictation is language-agnostic: whisper detects the language itself (`-l auto`),
+so Czech and English both just work. Pin a language with
+`AGENTSMITH_WHISPER_LANG=cs` if detection misfires on very short commands.
 
 Nothing is uploaded: recording, transcription and the recording's deletion all
 happen locally.
 
 ### Printers
 
-The **Tiskárny** panel lists your printers the moment it opens (from the
+The **Printers** panel lists your printers the moment it opens (from the
 remembered list on disk) and keeps their state current in the background, every
 30 seconds.
 
 | Column | Meaning |
 |---|---|
-| Stav — *nalezena* | Something answered, but we do not know what it is |
-| Stav — *odpovídá (chybí klíč)* | A printer is there and we cannot authenticate |
-| Stav — *připojeno* | The credential works; we can read the machine |
-| Stav — *nedostupná* | Remembered, not reachable from here right now |
-| Umím slicovat | Whether a slicer profile exists — **a separate question** |
+| State — *found* | Something answered, but we do not know what it is |
+| State — *answers (no key)* | A printer is there and we cannot authenticate |
+| State — *connected* | The credential works; we can read the machine |
+| State — *unreachable* | Remembered, not reachable from here right now |
+| Can slice | Whether a slicer profile exists — **a separate question** |
 
 Those last two columns are deliberately independent. A printer can be online and
 still unusable because no profile is configured for it, and saying so is more
 useful than one green lamp that means neither.
 
-- **Hledat** — passive mDNS discovery. One multicast question; nothing is aimed at
+- **Search** — passive mDNS discovery. One multicast question; nothing is aimed at
   individual hosts.
-- **i aktivní sken sítě** — opt-in. This is a port scan of your local /24:
+- **also scan the network** — opt-in. This is a port scan of your local /24:
   unremarkable at home, and something that trips intrusion detection on a managed
   network. Off by default, and the tooltip says so.
 - **Right-click** — rename, forget, or write a discovered machine into the slicer
   config.
-- **Přidat podle IP…** — for networks where discovery cannot work. A switched-off
+- **Add by IP…** — for networks where discovery cannot work. A switched-off
   printer can be added too; it simply stays unreachable until it answers.
 
 Printers are remembered by **identity, not address** — the machine's hostname and
@@ -308,7 +316,8 @@ stranger's device as your printer.
 
 ### Slicing and printing
 
-Ask in chat ("naslicuj to", "vytiskni to na Prusovi z PLA"), or run the tools:
+Ask in chat, in any language — "slice this", "print it on the Prusa in PLA",
+"naslicuj to", "vytiskni to na Prusovi z PLA" — or run the tools:
 
 ```bash
 cd freecad_bridge
@@ -385,8 +394,8 @@ python3 eval/compare.py a.json b.json # regression diff between two runs
 | "MCP cannot connect" | Stale `<project>/.agentsmith/mcp.json` from before 0.19.0 pointing at a dead `/tmp/.mount_*` path. It is rewritten on the next task with MCP enabled; MCP is off by default because measurements showed no benefit yet |
 | "no PLA profile" / "no network host" although both are configured | A stale copy of `slicer-config.json` in the project directory used to shadow the real one. Fixed (the copy is refreshed every task), but an old project folder is worth checking |
 | Task stops with "repeatedly changed X" | The runaway-mutation guard. Sketches and spreadsheets are built one event at a time and have a high ceiling; reaching it usually means a genuine loop |
-| Printer found, but shown as *odpovídá (chybí klíč)* | No credential. Create the file named by `api_key_file` |
-| Discovery finds nothing | Some networks block mDNS between segments. Use **Přidat podle IP…**, or tick the active scan |
+| Printer found, but shown as *answers (no key)* | No credential. Create the file named by `api_key_file` |
+| Discovery finds nothing | Some networks block mDNS between segments. Use **Add by IP…**, or tick the active scan |
 | Print stops at `ATTENTION` right after starting | The printer is asking something on its display — most often the bed is not clear |
 | Dictation returns nothing | The input is probably muted; the panel says so when the recording is a flat zero |
 | Dictation is slow (~26 s) | The whisper encoder is running on the CPU. See GPU acceleration above |

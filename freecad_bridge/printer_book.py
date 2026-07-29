@@ -102,15 +102,15 @@ def identity_matches(remembered, observed):
     known = remembered.get("fingerprint") or {}
     seen = fingerprint_of(observed)
     if not known:
-        return "unknown", "zatím bez otisku — beru, jak se představila"
+        return "unknown", "no fingerprint yet — taken at its word"
     if not seen:
-        return "unknown", "stroj se nepředstavil, nemám co porovnat"
+        return "unknown", "the machine did not identify itself, nothing to compare"
     shared = [k for k in known if k in seen]
     if not shared:
-        return "unknown", "nemají společný údaj k porovnání"
+        return "unknown", "no field in common to compare"
     for key in shared:
         if known[key].lower() != seen[key].lower():
-            return "mismatch", ("na této adrese je něco jiného (%s: %s, čekal jsem %s)"
+            return "mismatch", ("something else is at this address (%s: %s, expected %s)"
                                 % (key, seen[key], known[key]))
     return "match", None
 
@@ -129,7 +129,7 @@ def remember(book, entry, name=None, source="discovered", now=None):
     """Add or update a printer, keeping whatever the user has customised.
 
     A rediscovery must never overwrite the name the user typed: the panel is
-    theirs to label, and "QIDI v dílně" is more useful to them than the mkspi
+    theirs to label, and "QIDI in the workshop" is more useful to them than the mkspi
     hostname the board reports.
     """
     now = now or time.strftime("%Y-%m-%dT%H:%M:%S")
@@ -157,7 +157,7 @@ def remember(book, entry, name=None, source="discovered", now=None):
         record["fingerprint"] = fingerprint
     if name:
         record["name"] = name
-    record.setdefault("name", entry.get("label") or entry.get("address") or "tiskárna")
+    record.setdefault("name", entry.get("label") or entry.get("address") or "printer")
     record.setdefault("source", source)
     record["last_seen"] = now
     if entry.get("network"):
@@ -194,7 +194,7 @@ def add_manual(book, address, name=None, port=None, kind=None, now=None):
     """
     address = (address or "").strip()
     if not address:
-        raise ValueError("prázdná adresa")
+        raise ValueError("empty address")
     entry = {"address": address, "port": port, "kind": kind, "label": name or address}
     return remember(book, entry, name=name, source="manual", now=now)
 
@@ -295,17 +295,17 @@ def status_summary(book, now=None, freshness=STATE_FRESHNESS_SECONDS):
             except ValueError:
                 age = None
         if state is None or age is None or age > freshness:
-            state_text = "stav neznámý"
+            state_text = "state unknown"
         else:
-            state_text = {"connected": "připojena", "responding": "odpovídá, chybí klíč",
-                          "found": "nalezena", "unreachable": "nedostupná",
-                          "checking": "stav neznámý"}.get(state, state)
-        lines.append("- %s (%s, %s) — %s; slicovat %s" % (
+            state_text = {"connected": "connected", "responding": "answers, no key",
+                          "found": "found", "unreachable": "unreachable",
+                          "checking": "state unknown"}.get(state, state)
+        lines.append("- %s (%s, %s) — %s; slicing %s" % (
             printer.get("name") or printer.get("address"),
             printer.get("address") or "?",
-            printer.get("kind") or "typ neznámý",
+            printer.get("kind") or "type unknown",
             state_text,
-            "umím" if printer.get("can_slice") else "neumím (chybí profil)"))
+            "supported" if printer.get("can_slice") else "unsupported (no profile)"))
     return "\n".join(lines)
 
 
@@ -329,7 +329,7 @@ def cached_rows(book):
             "configured": False,
             "can_slice": False,
             "last_seen": printer.get("last_seen"),
-            "note": "naposledy viděna %s" % (printer.get("last_seen") or "?"),
+            "note": "last seen %s" % (printer.get("last_seen") or "?"),
         })
     return rows
 
@@ -350,7 +350,7 @@ def unseen_rows(book, seen_ids):
             "configured": False,
             "can_slice": False,
             "last_seen": printer.get("last_seen"),
-            "note": "naposledy viděna %s" % (printer.get("last_seen") or "?"),
+            "note": "last seen %s" % (printer.get("last_seen") or "?"),
         })
     return rows
 

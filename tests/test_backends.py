@@ -115,11 +115,11 @@ class ClaudeEvents(unittest.TestCase):
 
     def test_text_blocks_are_surfaced(self):
         event = {"type": "assistant", "message": {"content": [
-            {"type": "text", "text": "Hotovo."},
+            {"type": "text", "text": "Done."},
             {"type": "tool_use", "name": "Bash"},
-            {"type": "text", "text": "Uloženo."},
+            {"type": "text", "text": "Saved."},
         ]}}
-        self.assertEqual(backends.backend_event_text(event, "claude"), ["Hotovo.", "Uloženo."])
+        self.assertEqual(backends.backend_event_text(event, "claude"), ["Done.", "Saved."])
 
     def test_system_and_user_events_are_ignored(self):
         for key in ("system", "user"):
@@ -138,12 +138,12 @@ class ClaudeEvents(unittest.TestCase):
 
 class CopilotEvents(unittest.TestCase):
     def test_string_content(self):
-        event = {"type": "assistant.message", "data": {"content": "Hotovo."}}
-        self.assertEqual(backends.backend_event_text(event, "copilot"), ["Hotovo."])
+        event = {"type": "assistant.message", "data": {"content": "Done."}}
+        self.assertEqual(backends.backend_event_text(event, "copilot"), ["Done."])
 
     def test_nested_dict_content(self):
-        event = {"type": "assistant.message", "data": {}, "message": {"text": "Hotovo."}}
-        self.assertEqual(backends.backend_event_text(event, "copilot"), ["Hotovo."])
+        event = {"type": "assistant.message", "data": {}, "message": {"text": "Done."}}
+        self.assertEqual(backends.backend_event_text(event, "copilot"), ["Done."])
 
     def test_error_type_is_reported(self):
         texts = backends.backend_event_text({"type": "tool.error", "detail": "x"}, "copilot")

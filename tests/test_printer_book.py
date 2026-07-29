@@ -266,31 +266,31 @@ class StatusSummaryTests(unittest.TestCase):
     def test_a_fresh_reading_is_quoted(self):
         summary = book.status_summary(self.data, now=self.now)
         self.assertIn("Prusa doma", summary)
-        self.assertIn("připojena", summary)
-        self.assertIn("slicovat umím", summary)
+        self.assertIn("connected", summary)
+        self.assertIn("slicing supported", summary)
 
     def test_a_stale_reading_becomes_unknown(self):
         later = self.now + book.STATE_FRESHNESS_SECONDS + 60
         summary = book.status_summary(self.data, now=later)
-        self.assertIn("stav neznámý", summary)
-        self.assertNotIn("připojena", summary)
+        self.assertIn("state unknown", summary)
+        self.assertNotIn("connected", summary)
 
     def test_a_printer_never_checked_is_unknown_not_absent(self):
         book.add_manual(self.data, "10.0.0.9", name="Nová")
         summary = book.status_summary(self.data, now=self.now)
         self.assertIn("Nová", summary)
-        self.assertIn("stav neznámý", summary)
+        self.assertIn("state unknown", summary)
 
     def test_missing_slicer_profile_is_stated_plainly(self):
         record = book.remember(self.data, QIDI, name="QIDI")
         book.record_state(self.data, record["id"], "connected", can_slice=False,
                           now="2026-07-25T18:00:00")
         summary = book.status_summary(self.data, now=self.now)
-        self.assertIn("neumím (chybí profil)", summary)
+        self.assertIn("slicing unsupported (no profile)", summary)
 
     def test_a_corrupt_timestamp_is_treated_as_unknown(self):
         self.data["printers"][0]["last_state_at"] = "kdysi"
-        self.assertIn("stav neznámý", book.status_summary(self.data, now=self.now))
+        self.assertIn("state unknown", book.status_summary(self.data, now=self.now))
 
     def test_an_empty_book_produces_no_context(self):
         self.assertEqual(book.status_summary({"printers": []}), "")

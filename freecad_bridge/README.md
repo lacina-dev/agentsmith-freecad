@@ -135,7 +135,7 @@ plastics and FDM-printed plastics (with infill effect), distilled from standard
 machine-design FoS references and Prusa/Markforged/MatterHackers data.
 
 Version 0.12 turns the harness into an always-on engineering library and adds
-measuring commands. The exclusive **Režim** selector is gone: every playbook is
+measuring commands. The exclusive **Mode** selector is gone: every playbook is
 now provided to the backend on every task, and the prompt instructs the agent to
 apply each playbook whose trigger matches the part's character or intended use
 (with `parametrics` and `verify` always applying). `registry.json` gains a
@@ -165,9 +165,9 @@ before-screenshots, and described in the prompt as a *visual target only* (never
 dimensional truth). URLs are listed for the agent to fetch. A bad reference is
 logged and skipped — it never aborts a task.
 
-A **Rozpočet** (budget) selector replaces the fixed 8-minute wall-clock limit
-with three presets — *Rychlá úprava* (8 min / 480 s), *Nový díl* (15 min /
-900 s), *Sestava* (25 min / 1500 s). The choice is persisted and drives both the
+A **Budget** selector replaces the fixed 8-minute wall-clock limit
+with three presets — *Quick edit* (8 min / 480 s), *New part* (15 min /
+900 s), *Assembly* (25 min / 1500 s). The choice is persisted and drives both the
 prompt's delivery contract and the watchdog in `_check_task_guard`.
 `LIVE_EDIT_BUDGET_SECONDS` (480) remains the default fallback.
 

@@ -1,4 +1,4 @@
-"""printer_panel.py -- the Tiskárny section of the AgentSmith chat panel.
+"""printer_panel.py -- the Printers section of the AgentSmith chat panel.
 
 Split out of BridgeGui.py: printer discovery, the remembered list and the
 background monitor are a self-contained feature with their own state machine, and
@@ -152,11 +152,11 @@ class PrinterListWidget(QtWidgets.QGroupBox):
     }
 
     def __init__(self, parent=None):
-        super(PrinterListWidget, self).__init__("Tiskárny", parent)
+        super(PrinterListWidget, self).__init__("Printers", parent)
         self.worker = None
 
         self.table = QtWidgets.QTreeWidget()
-        self.table.setHeaderLabels(["Tiskárna", "Adresa", "Stav", "Umím slicovat"])
+        self.table.setHeaderLabels(["Printer", "Address", "State", "Can slice"])
         self.table.setRootIsDecorated(False)
         self.table.setAlternatingRowColors(True)
         self.table.setMinimumHeight(110)
@@ -169,23 +169,23 @@ class PrinterListWidget(QtWidgets.QGroupBox):
         for column in (1, 2, 3):
             header.setSectionResizeMode(column, QtWidgets.QHeaderView.ResizeToContents)
 
-        self.refresh_button = QtWidgets.QPushButton("Hledat")
+        self.refresh_button = QtWidgets.QPushButton("Search")
         self.refresh_button.clicked.connect(lambda: self.refresh(False))
-        self.add_button = QtWidgets.QPushButton("Přidat podle IP…")
+        self.add_button = QtWidgets.QPushButton("Add by IP…")
         self.add_button.setToolTip(
-            "Ruční přidání pro sítě, kde se tiskárna sama neohlásí.\n"
-            "Vypnutou tiskárnu lze přidat také — zůstane nedostupná, dokud se neozve.")
+            "Manual entry for networks where a printer does not announce itself.\n"
+            "A switched-off printer can be added too — it stays unreachable until it answers.")
         self.add_button.clicked.connect(self._add_by_address)
         # Off by default and spelled out in the tooltip: knocking on all 254
         # addresses is a port scan, which is unremarkable at home and a reportable
         # event on a managed network. The user opts in knowingly or not at all.
-        self.deep_scan = QtWidgets.QCheckBox("i aktivní sken sítě")
+        self.deep_scan = QtWidgets.QCheckBox("also scan the network")
         self.deep_scan.setToolTip(
-            "Bez zaškrtnutí se jen naslouchá tomu, co se samo ohlásí (mDNS) —\n"
-            "nic se neposílá na konkrétní stroje.\n\n"
-            "Zaškrtnuté: zkusí se spojení na každou adresu v lokální síti.\n"
-            "Doma neškodné, ve firemní síti to může vypadat jako skenování portů.")
-        self.status = QtWidgets.QLabel("nehledáno")
+            "Unchecked: only listens for machines that announce themselves (mDNS) —\n"
+            "nothing is sent to any individual machine.\n\n"
+            "Checked: a connection is tried against every address on the local network.\n"
+            "Harmless at home; on a corporate network it can look like a port scan.")
+        self.status = QtWidgets.QLabel("not searched")
         self.status.setStyleSheet("color: #888;")
 
         controls = QtWidgets.QHBoxLayout()
@@ -237,7 +237,7 @@ class PrinterListWidget(QtWidgets.QGroupBox):
             if quiet:
                 return                     # a background tick never interrupts
             self.worker.cancel()
-            self.status.setText("ruším…")
+            self.status.setText("cancelling…")
             return
         deep = self.deep_scan.isChecked() if deep is None else deep
         self.quiet_run = quiet
@@ -247,10 +247,10 @@ class PrinterListWidget(QtWidgets.QGroupBox):
         self.worker.progressed.connect(self._progress)
         if not quiet:
             self.worker.finished.connect(
-                lambda: self.refresh_button.setText("Hledat"))
-            self.refresh_button.setText("Zrušit")
-            self.status.setText("zjišťuji stav…" if known_only
-                                else ("skenuji síť…" if deep else "hledám…"))
+                lambda: self.refresh_button.setText("Search"))
+            self.refresh_button.setText("Cancel")
+            self.status.setText("checking state…" if known_only
+                                else ("scanning the network…" if deep else "searching…"))
         self.worker.start()
 
     def _selected_book_id(self):
@@ -262,11 +262,11 @@ class PrinterListWidget(QtWidgets.QGroupBox):
         network where discovery cannot work: segmented VLANs, a printer on a
         different subnet, or one that is simply switched off right now."""
         address, ok = QtWidgets.QInputDialog.getText(
-            self, "Přidat tiskárnu", "IP adresa nebo hostname (volitelně :port):")
+            self, "Add a printer", "IP address or hostname (optionally :port):")
         if not ok or not address.strip():
             return
         name, ok = QtWidgets.QInputDialog.getText(
-            self, "Název tiskárny", "Jak jí chceš říkat?", text=address.strip())
+            self, "Printer name", "What do you want to call it?", text=address.strip())
         if not ok:
             return
         host, _, port = address.strip().partition(":")
@@ -276,7 +276,7 @@ class PrinterListWidget(QtWidgets.QGroupBox):
                                     port=int(port) if port.strip().isdigit() else None)
             printer_book.save_book(data)
         except (ValueError, OSError) as exc:
-            QtWidgets.QMessageBox.warning(self, "Nepovedlo se", str(exc))
+            QtWidgets.QMessageBox.warning(self, "Failed", str(exc))
             return
         self.refresh(False)
 
@@ -287,7 +287,7 @@ class PrinterListWidget(QtWidgets.QGroupBox):
             return
         current = item.text(0) if item else ""
         name, ok = QtWidgets.QInputDialog.getText(
-            self, "Přejmenovat", "Název tiskárny:", text=current)
+            self, "Rename", "Printer name:", text=current)
         if not ok:
             return
         data = printer_book.load_book()
@@ -301,9 +301,9 @@ class PrinterListWidget(QtWidgets.QGroupBox):
             return
         item = self.table.currentItem()
         confirm = QtWidgets.QMessageBox.question(
-            self, "Zapomenout tiskárnu",
-            "Odstranit „%s\u201c ze seznamu?\n\nTiskárny se to nijak nedotkne; "
-            "znovu se objeví při dalším hledání." % item.text(0),
+            self, "Forget printer",
+            "Remove \u201c%s\u201d from the list?\n\nThe printer itself is untouched; "
+            "it reappears on the next search." % item.text(0),
             QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
         if confirm != QtWidgets.QMessageBox.Yes:
             return
@@ -317,11 +317,11 @@ class PrinterListWidget(QtWidgets.QGroupBox):
         """Give a discovered printer a config entry so it can be sliced for."""
         row = item.data(1, QtCore.Qt.UserRole) or {}
         confirm = QtWidgets.QMessageBox.question(
-            self, "Přidat do konfigurace",
-            "Zapsat „%s\u201c (%s) do slicer-config.json?\n\n"
-            "Doplní se jen síťová část. Slicovací profily zůstanou prázdné — "
-            "vymýšlet je by znamenalo vyrobit G-code pro stroj, který je nikdy "
-            "neměl. Do té doby zůstane u „Umím slicovat: ne\u201c."
+            self, "Add to the config",
+            "Write \u201c%s\u201d (%s) into slicer-config.json?\n\n"
+            "Only the network part is filled in. Slicer profiles stay empty — "
+            "inventing them would mean producing G-code for a machine that never "
+            "had them. Until they are added it stays at \u201cCan slice: no\u201d."
             % (item.text(0), row.get("address")),
             QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
         if confirm != QtWidgets.QMessageBox.Yes:
@@ -329,12 +329,12 @@ class PrinterListWidget(QtWidgets.QGroupBox):
         try:
             key, _block = printer_discovery.add_to_config(row, label=item.text(0))
         except (ValueError, OSError) as exc:
-            QtWidgets.QMessageBox.warning(self, "Nepovedlo se", str(exc))
+            QtWidgets.QMessageBox.warning(self, "Failed", str(exc))
             return
         QtWidgets.QMessageBox.information(
-            self, "Přidáno",
-            "Zapsáno jako „%s\u201c. Doplň profily a případně api_key_file, "
-            "pak půjde slicovat." % key)
+            self, "Added",
+            "Written as \u201c%s\u201d. Fill in the profiles and, if needed, api_key_file, "
+            "and it can be sliced for." % key)
         self.refresh(False)
 
     def _reload_names(self):
@@ -352,15 +352,15 @@ class PrinterListWidget(QtWidgets.QGroupBox):
             return
         self.table.setCurrentItem(item)
         menu = QtWidgets.QMenu(self)
-        menu.addAction("Přejmenovat…", lambda: self._rename(item))
+        menu.addAction("Rename…", lambda: self._rename(item))
         row = item.data(1, QtCore.Qt.UserRole) or {}
         if not row.get("configured") and row.get("kind") not in (None, "bambu"):
-            menu.addAction("Přidat do konfigurace…", lambda: self._add_to_config(item))
-        menu.addAction("Zapomenout", self._forget)
+            menu.addAction("Add to the config…", lambda: self._add_to_config(item))
+        menu.addAction("Forget", self._forget)
         menu.exec_(self.table.viewport().mapToGlobal(position))
 
     def _progress(self, done, total):
-        self.status.setText("skenuji síť… %d/%d" % (done, total))
+        self.status.setText("scanning the network… %d/%d" % (done, total))
 
     def _remember_selection(self):
         item = self.table.currentItem()
@@ -381,7 +381,7 @@ class PrinterListWidget(QtWidgets.QGroupBox):
         self.table.verticalScrollBar().setValue(scroll)
 
     def _failed(self, message):
-        self.status.setText("hledání selhalo: %s" % message)
+        self.status.setText("search failed: %s" % message)
 
     def _show(self, rows):
         saved = self._remember_selection()
@@ -393,7 +393,7 @@ class PrinterListWidget(QtWidgets.QGroupBox):
                 row.get("label") or row.get("address") or "?",
                 row.get("address") or "—",
                 printer_discovery.STATE_LABELS.get(row.get("state"), "?"),
-                "ano" if row.get("can_slice") else "ne",
+                "yes" if row.get("can_slice") else "no",
             ])
             item.setData(0, QtCore.Qt.UserRole, row.get("book_id"))
             item.setData(1, QtCore.Qt.UserRole, row)
@@ -407,15 +407,15 @@ class PrinterListWidget(QtWidgets.QGroupBox):
                 # Something answers here, but not our printer. Say so loudly:
                 # the alternative is a Start button aimed at a stranger's device.
                 item.setForeground(0, QtGui.QBrush(QtGui.QColor("#c62828")))
-                hints.append("POZOR: " + row.get("note", "jiné zařízení"))
+                hints.append("WARNING: " + row.get("note", "a different device"))
             if row.get("remembered") and row.get("last_seen"):
-                hints.append("naposledy viděna %s" % row["last_seen"])
+                hints.append("last seen %s" % row["last_seen"])
             if not row.get("configured"):
-                hints.append("není v konfiguraci — doplň profil a klíč")
+                hints.append("not in the config — add a profile and a key")
             if row.get("note"):
                 hints.append(row["note"])
             if row.get("kind"):
-                hints.append("protokol: %s" % row["kind"])
+                hints.append("protocol: %s" % row["kind"])
             item.setToolTip(0, "\n".join(hints))
             self.table.addTopLevelItem(item)
         self._restore_selection(saved)
@@ -423,7 +423,7 @@ class PrinterListWidget(QtWidgets.QGroupBox):
         usable = sum(1 for r in printers
                      if r.get("state") == printer_discovery.PrinterState.CONNECTED
                      and r.get("can_slice"))
-        summary = "%d tiskáren, %d připraveno k tisku" % (len(printers), usable)
+        summary = "%d printers, %d ready to print" % (len(printers), usable)
         if strangers:
-            summary += ", %d jiných zařízení přeskočeno" % strangers
+            summary += ", %d other devices skipped" % strangers
         self.status.setText(summary)

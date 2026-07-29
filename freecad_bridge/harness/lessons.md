@@ -46,53 +46,51 @@ report AND against the material the user named in the prompt; treat "could not v
 as unresolved rather than as a match. → promoted: `manufacture` print step 4,
 `print_send.py --send` pre-flight (blocks `--start` on mismatch).
 
-## L7 — Vzdálený start tisku předpokládá prázdnou podložku (2026-07-25, háček na ručník)
-Tisk byl spuštěn ze sítě dvě hodiny po předchozím tisku, aniž kdokoli potvrdil, že je
-podložka volná. Tiskárna po startu spadla do `ATTENTION`. Pre-flight umí porovnat trysku
-a filament, ale **stav podložky žádné API nehlásí** — a hotový díl z minulého tisku pod
-sondou zastaví start stejně spolehlivě jako špatná tryska. **Rule:** před `--start` na
-dálku si nech potvrdit, že je podložka prázdná a předchozí výtisk sundaný; nahrání
-G-code je vratné a může proběhnout bez ptaní, roztočení tisku ne. → promoted:
-`manufacture` krok 4.
+## L7 — A remote print start assumes an empty bed (2026-07-25, towel hook)
+A print was started over the network two hours after the previous one, with nobody
+confirming the bed was clear. The printer dropped into `ATTENTION` right after the start.
+Pre-flight can compare nozzle and filament, but **no API reports the state of the bed** —
+and a finished part from the last print sitting under the probe stops a start just as
+reliably as the wrong nozzle. **Rule:** before a remote `--start`, get it confirmed that
+the bed is empty and the previous print removed; uploading G-code is reversible and may
+happen without asking, spinning up a print is not. → promoted: `manufacture` step 4.
 
-## L8 — ZRUŠENA: chyba byla v evalu, ne v modelu (2026-07-26)
-Tady stálo, že modely třikrát vyrobily lisované uložení na jmenovitých 22,0 mm.
-**Nebyla to pravda.** Kontrola v `bearing_block_608.json` četla alias `BearingOD`
-a žádala, aby byl pod 21,95 — jenže `BearingOD` je z definice **22 mm, to je ten
-průměr ložiska**. Model měl celou dobu `PressInterference = 0,075` a `BoreDia =
-21,85`, což je přesně správně; ověřeno i na geometrii (válcová plocha Ø21,85).
-Po opravě aliasu na `BoreDia` má tentýž model **9/9**.
+## L8 — CANCELLED: the fault was in the eval, not in the model (2026-07-26)
+This entry used to claim that the models had produced a press fit at a nominal 22.0 mm
+three times over. **That was not true.** The check in `bearing_block_608.json` read the
+alias `BearingOD` and demanded it be under 21.95 — but `BearingOD` is by definition
+**22 mm, that is the bearing diameter**. The model had `PressInterference = 0.075` and
+`BoreDia = 21.85` all along, which is exactly right; confirmed on the geometry too
+(cylindrical face Ø21.85). With the alias fixed to `BoreDia` the same model scores **9/9**.
 
-Ponaučení tedy zůstává, ale míří jinam. **Rule:** než z opakovaného selhání uděláš
-pravidlo pro agenta, **ověř na geometrii, že check měří to, co si myslíš** — u
-kontroly aliasu si přečti, co ten alias podle zadání znamená. Tři „výskyty" byly tři
-spuštění jednoho rozbitého checku, a lekce z nich napsaná učila agenta opravovat
-něco, co dělal správně. Je to stejná třída chyby jako kdysi datumy počítané jako
-geometrie nebo obrácené normály — eval měřil něco jiného než realitu a vina padla
-na model. → promoted: `bearing_block_608.json` (alias opraven na `BoreDia`).
+The lesson survives, but it points elsewhere. **Rule:** before you turn a repeated failure
+into a rule for the agent, **verify on the geometry that the check measures what you think
+it does** — for an alias check, read what that alias means per the brief. Three
+"occurrences" were three runs of one broken check, and the lesson written from them taught
+the agent to fix something it was doing correctly. Same class of error as dates once
+computed as geometry, or flipped normals — the eval measured something other than reality
+and the model took the blame. → promoted: `bearing_block_608.json` (alias fixed to `BoreDia`).
 
-## L9 — Rozměry běžných věcí se dohledávají, ne odhadují (2026-07-25, držák na utěrky)
-Držák na kuchyňské utěrky dostal 250 mm a role se do něj nevejde. Naměřeno: česká
-role ~230 mm, německá ~260 mm, americká 11″ = 279 mm, průměr 105–150 mm. Playbook
-o rešerši v harnesu **byl**, jen se nespustil — jeho spouštěč zněl „když spec odkazuje
-na objekt, jehož rozměry je třeba dohledat", a u kuchyňské role si člověk (i model)
-řekne, že tu přece zná. Právě u všedních předmětů sebejistý odhad selže, protože nic
-nenutí ke kontrole. **Rule:** cokoli díl drží, nese nebo do čeho zapadá, dostane
-rozměry **napsané i se zdrojem dřív, než vznikne první geometrie** — i když ten
-předmět „znáš". Dimenzuj na **největší běžnou variantu plus vůli** a napiš, pro
-kterou variantu je díl navržený; díl padnoucí jen na nejmenší verzi je pro většinu
-lidí rozbitý. → promoted: `core` (sekce „Before any geometry: what does it hold?",
-DoD bod 8), nový playbook `reference-dimensions`.
+## L9 — Everyday dimensions are looked up, not estimated (2026-07-25, paper-towel holder)
+A kitchen paper-towel holder was given 250 mm and the roll does not fit. Measured: a Czech
+roll ~230 mm, a German one ~260 mm, an American 11″ = 279 mm, diameter 105–150 mm. The
+research playbook **was** in the harness, it just never fired — its trigger read "when the
+spec references an object whose dimensions must be looked up", and with a kitchen roll a
+person (and a model) assumes they already know it. It is exactly the everyday objects where
+a confident estimate fails, because nothing forces a check. **Rule:** anything the part
+holds, carries or mates with gets its dimensions **written down with a source before the
+first geometry exists** — even when you "know" the object. Size for the **largest common
+variant plus clearance** and state which variant the part is designed for; a part that fits
+only the smallest version is broken for most people. → promoted: `core` (section "Before any
+geometry: what does it hold?", DoD item 8), new playbook `reference-dimensions`.
 
-## L10 — „Dotýkají se, takže drží" není spoj (2026-07-25, zpětná vazba z praxe)
-Vícedílné sestavy vznikaly bez toho, aby bylo řečeno, co je drží pohromadě —
-plocha na ploše a doufat. Dvě konkrétní pasti: díl na **jednom šroubu je pant**
-(drží, ale otočí se), a **tištěný závit nebo klip** na místě, kde působí síla,
-vydrží zlomek toho co koupené železo. **Rule:** ke každému rozhraní napsat, **co ho
-drží** a **co brání uvolnění a pootočení**, dřív než vznikne geometrie. U nosných
-míst sáhnout po **standardním spojovacím materiálu** (šroub do zálisku, matice
-v kapse, závitová tyč skrz díl) a u dlouhých tištěných dílů zvážit **závitovou tyč
-jako výztuhu** — plast je slabý mezi vrstvami, ocelová tyč z toho dělá problém oceli.
-V reportu uvést, co si musí uživatel koupit. → promoted: `core` DoD bod 9,
-`assembly` §3 a §3b, `fasteners` §6.
-
+## L10 — "They touch, so they hold" is not a joint (2026-07-25, feedback from practice)
+Multi-part assemblies were built without ever stating what holds them together — face on
+face and hope. Two concrete traps: a part on **one screw is a hinge** (it holds, but it
+rotates), and a **printed thread or clip** where force acts survives a fraction of what
+bought hardware does. **Rule:** for every interface write down **what holds it** and **what
+prevents loosening and rotation**, before any geometry exists. At load-bearing points reach
+for **standard fasteners** (screw into a counterbore, nut in a pocket, threaded rod through
+the part), and for long printed parts consider a **threaded rod as a stiffener** — plastic
+is weak between layers, a steel rod makes it steel's problem. State in the report what the
+user has to buy. → promoted: `core` DoD item 9, `assembly` §3 and §3b, `fasteners` §6.

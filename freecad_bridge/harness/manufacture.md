@@ -19,9 +19,9 @@ vytiskni". These are legitimate tasks even when they change no geometry.
 - If the user names a printer (Prusa / CORE One, QIDI / Max3, WOLF), map it to
   the config key (`slice_check.py --list-printers`) and use it.
 - If the user does NOT name one, slice for the **default printer** and say so in
-  the report, **always listing the other options**: e.g. "Naslicováno pro Prusa
-  CORE One (výchozí). Řekni ‚naslicuj pro QIDI' pro přeslicování, nebo ‚další
-  slice pro wolfa' až budou jeho profily."
+  the report, **always listing the other options**: e.g. "Sliced for Prusa CORE
+  One (the default). Say 'slice for QIDI' (or 'naslicuj pro QIDI') to re-slice,
+  or ask for a slice for the WOLF once its profiles exist."
 - An **unconfigured** printer (missing profiles) is not an error to hide: state
   plainly that its profiles are pending and offer the configured ones.
 - Structural parts: mention that CORE One has a STRUCTURAL process variant (see

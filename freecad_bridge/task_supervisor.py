@@ -1,6 +1,6 @@
 """task_supervisor.py -- running one supervised modeling task, start to finish.
 
-Everything between "the user pressed Odeslat" and "the document is either changed
+Everything between "the user pressed Send" and "the document is either changed
 or rolled back": launching the backend, streaming its output, the watchdog that
 enforces the budget and the mutation guards, checkpoint restore, the independent
 reviewer pass, the auto-fix rounds, and turning a failure into a written lesson.
@@ -107,7 +107,7 @@ class TaskSupervisionMixin(object):
         if violation and not task.get("guard_violation"):
             task["guard_violation"] = violation
             self.codex_output.appendPlainText("\nFILE GUARD: " + violation)
-            self._set_task_state("failed", "Ochrana souboru zasáhla")
+            self._set_task_state("failed", "File guard tripped")
             if self.codex_process.state() != QtCore.QProcess.NotRunning:
                 self.codex_process.terminate()
     def _task_safety_violation(self, reason):
@@ -116,7 +116,7 @@ class TaskSupervisionMixin(object):
             return
         task["guard_violation"] = reason
         self.codex_output.appendPlainText("\nSAFETY LIMIT: " + reason)
-        self._set_task_state("failed", "Bezpečnostní limit zasáhl")
+        self._set_task_state("failed", "Safety limit tripped")
         if self.codex_process.state() != QtCore.QProcess.NotRunning:
             self.codex_process.terminate()
     def _restore_task_snapshot(self, task, reason):
@@ -369,19 +369,19 @@ class TaskSupervisionMixin(object):
         escalated = getattr(self, "_autofix_model", None)
         if escalated:
             model_id = escalated
-            model_label = "%s (eskalace)" % escalated
+            model_label = "%s (escalated)" % escalated
         if not doc.FileName:
-            QtWidgets.QMessageBox.warning(self, "Dokument není uložený", "Nejdřív dokument ulož jako .FCStd. Supervisor potřebuje pevnou kanonickou cestu pro ochranu a obnovu.")
+            QtWidgets.QMessageBox.warning(self, "Document is not saved", "Save the document as .FCStd first. The supervisor needs a fixed canonical path for protection and restore.")
             return
         doc.recompute()
         validation = _validate_document(doc)
         if not validation["ok"]:
-            QtWidgets.QMessageBox.warning(self, "Dokument není platný", "Úlohu nelze bezpečně spustit, protože výchozí dokument neprošel validací.")
+            QtWidgets.QMessageBox.warning(self, "Document is not valid", "The task cannot be started safely because the starting document failed validation.")
             return
         doc.save()
         canonical_path = os.path.abspath(doc.FileName)
         if not _fcstd_archive_valid(canonical_path):
-            QtWidgets.QMessageBox.critical(self, "Neplatný FCStd", "Uložený dokument není platný FCStd archiv. Backend nebyl spuštěn.")
+            QtWidgets.QMessageBox.critical(self, "Invalid FCStd", "The saved document is not a valid FCStd archive. The backend was not started.")
             return
         with open(canonical_path, "rb") as handle:
             protected_bytes = handle.read()
@@ -538,7 +538,7 @@ class TaskSupervisionMixin(object):
             "4. Inspect the supplied images and scene manifest before choosing a method. Images are visual evidence, not dimensional proof. Derive task-specific measurements from FreeCAD geometry and numerically verify every requested dimension/tolerance.\n"
             "5. After editing, capture comparable views, inspect them for visible regressions, run bridge `validate`, then `save`, `fit_view`, and a final `screenshot`.\n"
             "6. Report exact changed FreeCAD objects, parameters, numerical checks, and visual comparison. If you cannot change or inspect the live document, report FAILED; never claim success based only on source-file edits.\n"
-            "7. Manufacturing requests (slice / print / send-to-printer), alone or combined with modeling, are legitimate tasks — follow the 'Výroba' playbook and use slice_check.py / print_send.py from the project directory. If the task intentionally made NO model mutation (slice-only, print-only, status query), end your final message with the exact line 'ACTION-ONLY TASK COMPLETED: <summary>' so the supervisor accepts it; never use that line after a failure.\n\n"
+            "7. Manufacturing requests (slice / print / send-to-printer), alone or combined with modeling, are legitimate tasks — follow the 'Manufacturing' playbook and use slice_check.py / print_send.py from the project directory. If the task intentionally made NO model mutation (slice-only, print-only, status query), end your final message with the exact line 'ACTION-ONLY TASK COMPLETED: <summary>' so the supervisor accepts it; never use that line after a failure.\n\n"
             "%s"
             "USER REQUEST: %s"
             % (backend["label"], model_id or "backend default", task_id, project, document,
@@ -572,7 +572,7 @@ class TaskSupervisionMixin(object):
         self.task_stop_requested = False
         self.task_started_monotonic = time.monotonic()
         self.task_elapsed.setText("0:00")
-        self._set_task_state("running", "Pracuje · %s · %s" % (backend["label"], model_label))
+        self._set_task_state("running", "Working · %s · %s" % (backend["label"], model_label))
         self.task_timer.start()
         self.file_guard_timer.start()
         self.codex_prompt.clear()
@@ -593,14 +593,14 @@ class TaskSupervisionMixin(object):
     def _stop_codex(self):
         if self.codex_process.state() != QtCore.QProcess.NotRunning:
             self.task_stop_requested = True
-            self.task_status.setText("Zastavuji…")
+            self.task_status.setText("Stopping…")
             self.codex_process.terminate()
             QtCore.QTimer.singleShot(2500, self._kill_codex_if_running)
         elif self.reviewer_process.state() != QtCore.QProcess.NotRunning:
-            self.codex_output.appendPlainText("\nReviewer: zastavuji na žádost.")
+            self.codex_output.appendPlainText("\nReviewer: stopping on request.")
             self._stop_reviewer()
             self.codex_stop.setEnabled(False)
-            self.codex_supervisor_status.setText("Reviewer: zastaveno")
+            self.codex_supervisor_status.setText("Reviewer: stopped")
     def _kill_codex_if_running(self):
         if self.codex_process.state() != QtCore.QProcess.NotRunning:
             self.codex_process.kill()
@@ -654,14 +654,14 @@ class TaskSupervisionMixin(object):
             outcome = {"status": "failed", "reason": "supervisor exception: %s" % exc, "restored": bool(task)}
             self.codex_output.appendPlainText("\nSUPERVISOR ERROR: " + str(exc))
         if self.task_stop_requested:
-            self._set_task_state("stopped", "Zastaveno")
-            self.codex_output.appendPlainText("\n■ ÚLOHA ZASTAVENA")
+            self._set_task_state("stopped", "Stopped")
+            self.codex_output.appendPlainText("\n■ TASK STOPPED")
         elif outcome and outcome.get("status") == "success":
-            self._set_task_state("success", "Hotovo · ověřeno")
-            self.codex_output.appendPlainText("\n✓ ÚLOHA HOTOVA A OVĚŘENA")
+            self._set_task_state("success", "Done · verified")
+            self.codex_output.appendPlainText("\n✓ TASK DONE AND VERIFIED")
         else:
-            self._set_task_state("failed", "Selhalo · bez ověřené změny")
-            self.codex_output.appendPlainText("\n✗ ÚLOHA SELHALA NEBO NEBYLA OVĚŘENA")
+            self._set_task_state("failed", "Failed · no verified change")
+            self.codex_output.appendPlainText("\n✗ TASK FAILED OR WAS NOT VERIFIED")
         self._update_task_elapsed()
         try:
             if Gui.activeDocument() is not None:
@@ -744,7 +744,7 @@ class TaskSupervisionMixin(object):
         backend_id = outcome.get("backend") or self.backend.currentData()
         backend = self.backends.get(backend_id)
         if not backend or not backend.get("available"):
-            self.codex_output.appendPlainText("\nReviewer přeskočen: backend není dostupný.")
+            self.codex_output.appendPlainText("\nReviewer skipped: no backend available.")
             return
         model_id = str(outcome.get("model") or "")
         project = self._project_directory()
@@ -840,8 +840,8 @@ class TaskSupervisionMixin(object):
                                "prompt": outcome.get("prompt", ""),
                                "autofix_round": bool(outcome.get("autofix_round"))}
         self.reviewer_buffer = ""
-        self.codex_output.appendPlainText("\n── OVĚŘOVACÍ PRŮCHOD (reviewer) — nezávislý, read-only ──")
-        self.codex_supervisor_status.setText("Reviewer: běží (read-only)")
+        self.codex_output.appendPlainText("\n── VERIFICATION PASS (reviewer) — independent, read-only ──")
+        self.codex_supervisor_status.setText("Reviewer: running (read-only)")
         self.codex_stop.setEnabled(True)
         self.reviewer_process.setWorkingDirectory(project)
         process_environment = QtCore.QProcessEnvironment.systemEnvironment()
@@ -887,8 +887,8 @@ class TaskSupervisionMixin(object):
         except Exception:
             pass
         self.codex_stop.setEnabled(False)
-        self.codex_output.appendPlainText("\n── Konec ověřovacího průchodu ──")
-        self.codex_supervisor_status.setText("Reviewer: hotovo")
+        self.codex_output.appendPlainText("\n── End of the verification pass ──")
+        self.codex_supervisor_status.setText("Reviewer: done")
         verdict_text = "\n".join((state or {}).get("text", []))[-6000:]
         try:
             doc = App.ActiveDocument
@@ -920,7 +920,7 @@ class TaskSupervisionMixin(object):
                                "verdict": verdict_text or ""}
         self.lesson_button.setEnabled(True)
         self.codex_output.appendPlainText(
-            "\nTip: tlačítkem „Zapsat lekci\u201c navrhnu z tohohle záznam do lessons.md.")
+            "\nTip: the \u201cRecord lesson\u201d button drafts a lessons.md entry from this.")
     def _lessons_path(self):
         return os.path.join(HARNESS_DIR, "lessons.md")
     def _draft_lesson(self):
@@ -930,19 +930,19 @@ class TaskSupervisionMixin(object):
             return
         if self.codex_process.state() != QtCore.QProcess.NotRunning or self.codex_task:
             QtWidgets.QMessageBox.information(
-                self, "Probíhá úloha", "Počkej, až doběhne aktuální úloha.")
+                self, "A task is running", "Wait until the current task finishes.")
             return
         backend_id = self.backend.currentData()
         backend = self.backends.get(backend_id)
         if not backend or not backend.get("available"):
-            QtWidgets.QMessageBox.warning(self, "Backend nedostupný",
-                                          "Pro sepsání lekce je potřeba dostupný backend.")
+            QtWidgets.QMessageBox.warning(self, "No backend available",
+                                          "Drafting a lesson needs an available backend.")
             return
         try:
             with open(self._lessons_path(), "r", encoding="utf-8") as handle:
                 existing = handle.read()
         except Exception as exc:
-            QtWidgets.QMessageBox.warning(self, "lessons.md", "Nelze číst: %s" % exc)
+            QtWidgets.QMessageBox.warning(self, "lessons.md", "Cannot be read: %s" % exc)
             return
 
         prompt = agentsmith_lessons.build_prompt(
@@ -953,7 +953,7 @@ class TaskSupervisionMixin(object):
             backend_id, str(self.model.currentData() or ""), project, prompt)
 
         self.lesson_button.setEnabled(False)
-        self.codex_output.appendPlainText("\n── Návrh lekce (krátký běh) ──")
+        self.codex_output.appendPlainText("\n── Lesson draft (short run) ──")
         self._lesson_process = QtCore.QProcess(self)
         self._lesson_process.setProcessChannelMode(QtCore.QProcess.MergedChannels)
         self._lesson_process.setWorkingDirectory(project)
@@ -991,25 +991,25 @@ class TaskSupervisionMixin(object):
         entry, declined = agentsmith_lessons.extract_entry(text)
         if declined:
             self.codex_output.appendPlainText(
-                "Lekce nezapsána — agent usoudil, že zobecnitelné pravidlo v tom není:\n%s"
+                "Lesson not recorded — the agent found no generalisable rule in it:\n%s"
                 % entry[:600])
             return
         if not entry.strip():
             self.codex_output.appendPlainText(
-                "Návrh lekce se nepodařilo získat (exit %s)." % exit_code)
+                "The lesson draft could not be obtained (exit %s)." % exit_code)
             return
 
         problems = agentsmith_lessons.validate_entry(entry, existing)
         message = entry if not problems else (
-            entry + "\n\n⚠ Formální výhrady:\n" + "\n".join("• " + p for p in problems))
+            entry + "\n\n⚠ Formal objections:\n" + "\n".join("• " + p for p in problems))
         dialog = QtWidgets.QMessageBox(self)
-        dialog.setWindowTitle("Zapsat lekci do lessons.md?")
-        dialog.setText("Návrh záznamu — zapsat do harness/lessons.md?")
+        dialog.setWindowTitle("Record the lesson in lessons.md?")
+        dialog.setText("Draft entry — write it into harness/lessons.md?")
         dialog.setInformativeText(message)
         dialog.setStandardButtons(QtWidgets.QMessageBox.Save | QtWidgets.QMessageBox.Cancel)
         dialog.setDefaultButton(QtWidgets.QMessageBox.Cancel)
         if dialog.exec_() != QtWidgets.QMessageBox.Save:
-            self.codex_output.appendPlainText("Lekce nezapsána (zrušeno).")
+            self.codex_output.appendPlainText("Lesson not recorded (cancelled).")
             return
 
         try:
@@ -1019,14 +1019,14 @@ class TaskSupervisionMixin(object):
             with open(path, "w", encoding="utf-8") as handle:
                 handle.write(agentsmith_lessons.append_entry(current, entry))
         except Exception as exc:
-            QtWidgets.QMessageBox.warning(self, "lessons.md", "Zápis selhal: %s" % exc)
+            QtWidgets.QMessageBox.warning(self, "lessons.md", "Write failed: %s" % exc)
             return
         # The registry cache holds the harness text; drop it so the next task sees
         # the new rule instead of the version from panel start-up.
         self._harness_registry_cache = None
         self._lesson_source = None
         self.lesson_button.setEnabled(False)
-        self.codex_output.appendPlainText("Lekce zapsána do lessons.md.")
+        self.codex_output.appendPlainText("Lesson recorded in lessons.md.")
     def _maybe_autofix(self, state, verdict_text):
         """Corrective worker rounds while the reviewer's findings keep changing.
 
@@ -1096,7 +1096,7 @@ class TaskSupervisionMixin(object):
     def _reviewer_timeout(self, run_id):
         state = self.reviewer_state
         if state and state.get("run_id") == run_id and self.reviewer_process.state() != QtCore.QProcess.NotRunning:
-            self.codex_output.appendPlainText("\nReviewer: časový limit vypršel, ukončuji.")
+            self.codex_output.appendPlainText("\nReviewer: time limit reached, terminating.")
             self.reviewer_process.terminate()
             QtCore.QTimer.singleShot(2000, self._kill_reviewer_if_running)
     def _kill_reviewer_if_running(self):
@@ -1113,7 +1113,7 @@ class TaskSupervisionMixin(object):
                 self.reviewer_process.kill()
     def _codex_process_error(self, error):
         if self.codex_process.state() == QtCore.QProcess.NotRunning and self.codex_task:
-            self._set_task_state("failed", "Backend se nepodařilo spustit")
+            self._set_task_state("failed", "The backend could not be started")
             self.codex_output.appendPlainText("\nERROR: backend process could not start (%s)" % error)
             self.codex_run.setEnabled(True)
             self.codex_stop.setEnabled(False)

@@ -58,7 +58,7 @@ stronger than anything FDM produces, and let a part be taken apart again. Printe
 threads and clips are for light, non-structural, occasionally-opened things.
 
 The **Fasteners and Gears workbenches are installed** and drivable headlessly —
-see the "Reálný spojovací materiál a ozubení" playbook for verified calls. In a
+see the "Real fasteners & gears (workbenches)" playbook for verified calls. In a
 complex assembly the real screws belong in the model: they prove the fastener fits,
 the head clears and the thread reaches, and they make the design legible. Model the
 **holes, counterbores and nut pockets natively** — those are the printed part — and

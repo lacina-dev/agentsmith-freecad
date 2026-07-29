@@ -60,11 +60,11 @@ class PrinterState(object):
 
 #: Human-readable, kept next to the constants so the UI and the CLI agree.
 STATE_LABELS = {
-    PrinterState.FOUND: "nalezena",
-    PrinterState.RESPONDING: "odpovídá (chybí klíč)",
-    PrinterState.CONNECTED: "připojeno",
-    PrinterState.UNREACHABLE: "nedostupná",
-    PrinterState.CHECKING: "zjišťuji…",
+    PrinterState.FOUND: "found",
+    PrinterState.RESPONDING: "answers (no key)",
+    PrinterState.CONNECTED: "connected",
+    PrinterState.UNREACHABLE: "unreachable",
+    PrinterState.CHECKING: "checking…",
 }
 
 
@@ -412,8 +412,8 @@ def discover_bambu(timeout=4.0, ports=BAMBU_PORTS):
                 entry = parse_bambu_announcement(data.decode("utf-8", "replace"))
                 if entry and entry["address"] not in seen:
                     seen.add(entry["address"])
-                    entry["note"] = ("Bambu se hlásí, ale AgentSmith ji zatím neumí "
-                                     "obsloužit (MQTT/FTPS, ne HTTP API).")
+                    entry["note"] = ("Bambu announces itself, but AgentSmith cannot "
+                                     "drive it yet (MQTT/FTPS, not an HTTP API).")
                     entry["state"] = PrinterState.FOUND
                     found.append(entry)
         finally:
@@ -592,11 +592,11 @@ def identify(entry, api_key=None, opener=None):
             # Something is listening and guarding itself. Remember it, but keep
             # looking: another dialect may answer openly and name the machine.
             best = keep(best, (name, port, PrinterState.RESPONDING,
-                               "vyžaduje API klíč", {}))
+                               "needs an API key", {}))
             continue
         if status >= 400:
             best = keep(best, (name, port, PrinterState.FOUND,
-                               "odpovědělo HTTP %d" % status, {}))
+                               "answered HTTP %d" % status, {}))
             continue
         try:
             info = json.loads(body.decode("utf-8", "replace"))
@@ -610,7 +610,7 @@ def identify(entry, api_key=None, opener=None):
             best = (name, port, state, None, info)
             break
         best = keep(best, (name, port, PrinterState.FOUND,
-                           "odpovídá, ale nepoznávám ji", {}))
+                           "answers, but is not recognised", {}))
 
     if best is None:
         result["state"] = PrinterState.UNREACHABLE
@@ -628,13 +628,13 @@ def identify(entry, api_key=None, opener=None):
         # because a locked printer is still probably a printer, but it is
         # labelled a guess so nobody prints to it on the strength of a port.
         result["kind"] = name
-        note = "vyžaduje API klíč — typ neověřen"
+        note = "needs an API key — type unverified"
     else:
         # A web server that answers with HTML is a router, a NAS, a doorbell.
         # Naming it after whichever dialect we happened to ask first is how a
         # router ended up in the printer list; unknown is the honest answer.
         result["kind"] = None
-        note = "neznámé zařízení — neodpovídá jako tiskárna"
+        note = "unknown device — does not answer like a printer"
     if note:
         result["note"] = note
     payload = info.get("result") if isinstance(info.get("result"), dict) else info
@@ -748,7 +748,7 @@ def merge_with_config(config, discovered):
             "can_slice": False,          # no profile exists until it is added
             "state": entry.get("state", PrinterState.FOUND),
             "via": entry.get("via"),
-            "note": entry.get("note") or ("nalezena, ale není v konfiguraci"
+            "note": entry.get("note") or ("found, but not in the config"
                                           if not entry.get("remembered") else None),
         }, entry))
     return rows
@@ -828,7 +828,7 @@ def add_to_config(row, path=None, label=None):
         with open(path, "r", encoding="utf-8") as handle:
             config = json.load(handle, object_pairs_hook=collections.OrderedDict)
     except (OSError, ValueError) as exc:
-        raise ValueError("Konfiguraci se nepodařilo načíst: %s" % exc)
+        raise ValueError("The config could not be loaded: %s" % exc)
 
     key, block = suggest_config_entry(row)
     if label:
@@ -880,7 +880,7 @@ def suggest_config_entry(entry):
             "api_key_file": "~/.config/agentsmith/%s.key" % (key or "printer"),
         },
         "status": "unconfigured",
-        "note": "Objeveno na síti. Doplň slicovací profil a API klíč.",
+        "note": "Discovered on the network. Add a slicer profile and an API key.",
     }
 
 
@@ -921,11 +921,11 @@ def main(argv=None):
             STATE_LABELS.get(entry.get("state"), entry.get("state")),
             entry.get("label", "")))
     if strangers:
-        print("\n%d další zařízení odpovědělo, ale nejsou to tiskárny: %s"
+        print("\n%d other devices answered, but are not printers: %s"
               % (len(strangers), ", ".join(e["address"] for e in strangers)))
     if not printers:
-        print("Žádná tiskárna se neohlásila." + ("" if opts.scan else
-              " Zkus --scan (aktivní sken lokální sítě)."))
+        print("No printer announced itself." + ("" if opts.scan else
+              " Try --scan (active scan of the local network)."))
     return 0
 
 

@@ -179,7 +179,7 @@ class PanelWiring(unittest.TestCase):
 
     def test_writing_requires_an_explicit_confirmation(self):
         self.assertIn("QtWidgets.QMessageBox.Save", self.source)
-        self.assertIn("Lekce nezapsána (zrušeno)", self.source)
+        self.assertIn("Lesson not recorded (cancelled)", self.source)
 
     def test_the_default_button_is_cancel(self):
         # The destructive default would be a rule nobody chose landing in a binding file.
@@ -187,7 +187,7 @@ class PanelWiring(unittest.TestCase):
 
     def test_validation_problems_are_shown_before_the_user_decides(self):
         self.assertIn("agentsmith_lessons.validate_entry(entry, existing)", self.source)
-        self.assertIn("Formální výhrady", self.source)
+        self.assertIn("Formal objections", self.source)
 
     def test_a_declined_draft_writes_nothing(self):
         self.assertIn("if declined:", self.source)

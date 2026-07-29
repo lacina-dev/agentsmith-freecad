@@ -43,13 +43,13 @@ MODEL_BASE_URL = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/"
 #: base models are omitted on purpose -- they transcribe Czech badly enough that
 #: offering them would mostly generate complaints about the feature.
 MODELS = (
-    ("ggml-large-v3-turbo-q5_0.bin", "large-v3-turbo (kvantovaný)", 547,
-     "nejlepší čeština, doporučeno"),
-    ("ggml-medium-q5_0.bin", "medium (kvantovaný)", 514, "solidní čeština, menší"),
-    ("ggml-large-v3-turbo.bin", "large-v3-turbo (plný)", 1624,
-     "o málo lepší než kvantovaný, třikrát větší"),
-    ("ggml-small-q5_1.bin", "small (kvantovaný)", 181,
-     "čeština slabá — jen když je málo místa"),
+    ("ggml-large-v3-turbo-q5_0.bin", "large-v3-turbo (quantised)", 547,
+     "best Czech, recommended"),
+    ("ggml-medium-q5_0.bin", "medium (quantised)", 514, "solid Czech, smaller"),
+    ("ggml-large-v3-turbo.bin", "large-v3-turbo (full)", 1624,
+     "marginally better than the quantised one, three times the size"),
+    ("ggml-small-q5_1.bin", "small (quantised)", 181,
+     "weak Czech — only when disk space is short"),
 )
 
 #: Voice-activity detection model. Small, and the single most effective guard
@@ -167,17 +167,17 @@ def availability(model_dir=None):
     problems = []
     if not recorder:
         problems.append(
-            "Chybí nástroj pro nahrávání. Nainstaluj jeden z: %s "
-            "(na Ubuntu stačí `sudo apt install alsa-utils`)." % ", ".join(RECORDERS))
+            "No recording tool. Install one of: %s "
+            "(on Ubuntu `sudo apt install alsa-utils` is enough)." % ", ".join(RECORDERS))
     if not binary:
         problems.append(
-            "Chybí whisper.cpp. Nainstaluj `whisper-cli` (např. "
-            "`sudo apt install whisper.cpp` nebo build z github.com/ggerganov/whisper.cpp) "
-            "a případně nastav AGENTSMITH_WHISPER_BIN.")
+            "whisper.cpp is missing. Install `whisper-cli` (e.g. "
+            "`sudo apt install whisper.cpp`, or build it from github.com/ggerganov/whisper.cpp) "
+            "and set AGENTSMITH_WHISPER_BIN if needed.")
     if not model and binary:
         problems.append(
-            "Chybí model pro rozpoznávání. Pro češtinu je potřeba aspoň medium — "
-            "stáhni ho tlačítkem, uloží se do %s." % (model_dir or MODEL_DIR))
+            "No recognition model. Czech needs at least medium — "
+            "download it with the button; it is stored in %s." % (model_dir or MODEL_DIR))
     muted = input_muted()
     return {
         "recorder": recorder,
@@ -223,7 +223,7 @@ def record_args(tool, path, rate=SAMPLE_RATE, channels=CHANNELS, device=None):
             "-ac", str(channels), "-ar", str(rate), path]
     if name.startswith(("sox", "rec")):
         return [tool, "-q", "-d", "-r", str(rate), "-c", str(channels), "-b", "16", path]
-    raise VoiceUnavailable("Neznámý nahrávací nástroj: %s" % tool)
+    raise VoiceUnavailable("Unknown recording tool: %s" % tool)
 
 
 # --------------------------------------------------------------------------- #
@@ -251,8 +251,12 @@ def signal_level(wav_path):
     return (sum(float(v) * v for v in data) / len(data)) ** 0.5, seconds
 
 
-def transcribe_args(binary, model, wav_path, language="cs", vad=None):
+def transcribe_args(binary, model, wav_path, language=None, vad=None):
     """whisper.cpp invocation that prints only the words.
+
+    Language defaults to whisper's own detection ("auto"), so dictation works in
+    Czech, English or anything else the model knows without a setting. Pin it
+    with AGENTSMITH_WHISPER_LANG when detection misfires on short commands.
 
     `-nt` drops timestamps and `-np` drops the progress chatter, so stdout is the
     transcript and nothing else -- no log lines to filter out of the prompt.
@@ -261,6 +265,7 @@ def transcribe_args(binary, model, wav_path, language="cs", vad=None):
     # where 8 took 26 s -- past a point the threads fight over memory bandwidth
     # and each extra one makes it slower.
     threads = max(1, min(8, (os.cpu_count() or 4) // 2))
+    language = language or os.environ.get("AGENTSMITH_WHISPER_LANG") or "auto"
     args = [binary, "-m", model, "-f", wav_path, "-l", language,
             "-nt", "-np", "-t", str(threads)]
     if vad:
@@ -295,15 +300,15 @@ def clean_transcript(text):
     return " ".join(lines).strip()
 
 
-def transcribe(wav_path, binary=None, model=None, language="cs", runner=None,
+def transcribe(wav_path, binary=None, model=None, language=None, runner=None,
                timeout=300):
     """Run the transcription and return the text. Never returns a partial guess."""
     binary = binary or whisper_binary()
     model = model or whisper_model()
     if not binary or not model:
-        raise VoiceUnavailable("whisper.cpp nebo model chybí — hlas není nastavený.")
+        raise VoiceUnavailable("whisper.cpp or the model is missing — voice is not set up.")
     if not os.path.isfile(wav_path) or os.path.getsize(wav_path) < 1024:
-        raise VoiceUnavailable("Nahrávka je prázdná — nic jsem neslyšel.")
+        raise VoiceUnavailable("The recording is empty — nothing was heard.")
 
     # Silence is not transcribed, it is refused. Fed a silent recording, whisper
     # does not return nothing -- it invents a plausible sentence (measured here:
@@ -317,9 +322,9 @@ def transcribe(wav_path, binary=None, model=None, language="cs", runner=None,
         # some noise floor. Saying so saves the user from concluding the feature
         # is broken. (Found exactly this way: the default source on the
         # development machine was muted and every recording read as a flat zero.)
-        hint = (" Vypadá to, že je vstup ztlumený — zkontroluj mikrofon."
+        hint = (" The input looks muted — check the microphone."
                 if rms == 0 else "")
-        raise VoiceUnavailable("Nahrávka je téměř tichá — nic jsem neslyšel." + hint)
+        raise VoiceUnavailable("The recording is almost silent — nothing was heard." + hint)
 
     args = transcribe_args(binary, model, wav_path, language, vad=vad_model())
     runner = runner or (lambda cmd: subprocess.run(
@@ -327,18 +332,18 @@ def transcribe(wav_path, binary=None, model=None, language="cs", runner=None,
     result = runner(args)
     if getattr(result, "returncode", 0) != 0:
         detail = (getattr(result, "stderr", b"") or b"").decode("utf-8", "replace")
-        raise VoiceUnavailable("Přepis selhal: %s" % (detail.strip()[-300:] or "?"))
+        raise VoiceUnavailable("Transcription failed: %s" % (detail.strip()[-300:] or "?"))
     return clean_transcript(
         (getattr(result, "stdout", b"") or b"").decode("utf-8", "replace"))
 
 
 def install_hint(model_dir=None):
-    lines = ["Hlasové zadání potřebuje dvě věci, obojí jednorázově:", "",
-             "1. whisper.cpp — `whisper-cli` v PATH",
-             "   (Ubuntu: sudo apt install whisper.cpp, jinak build ze zdrojů)",
-             "2. model pro češtinu, do %s:" % (model_dir or MODEL_DIR), ""]
+    lines = ["Voice input needs two things, both one-off:", "",
+             "1. whisper.cpp — `whisper-cli` on PATH",
+             "   (Ubuntu: sudo apt install whisper.cpp, otherwise build from source)",
+             "2. a model, into %s:" % (model_dir or MODEL_DIR), ""]
     for name, label, size_mb, note in MODELS:
         lines.append("   %-32s %5d MB  %s" % (label, size_mb, note))
-    lines += ["", "Nic z toho se nestahuje samo — model je velký a je to tvoje volba.",
-              "Zvuk nikam neodchází, přepis běží celý u tebe."]
+    lines += ["", "Nothing downloads itself — the model is large and the choice is yours.",
+              "The audio never leaves this machine; transcription runs entirely locally."]
     return "\n".join(lines)

@@ -35,15 +35,15 @@ class FakeHarness(unittest.TestCase):
         self.write_registry({
             "always_include": ["core.md"],
             "playbooks": [{"id": "print3d", "file": "print3d.md",
-                           "label": "3D tisk", "trigger": "the part is printed"}],
+                           "label": "3D print", "trigger": "the part is printed"}],
         })
         self.write("core.md", "CORE BODY")
         self.write("print3d.md", "PRINT BODY")
         label, text = harness.assemble_harness(self.dir, warn=self.warnings.append)
-        self.assertEqual(label, "úplný harness (1 playbooků)")
+        self.assertEqual(label, "full harness (1 playbooks)")
         self.assertLess(text.index("CORE BODY"), text.index(harness.INDEX_HEADING))
         self.assertLess(text.index(harness.INDEX_HEADING), text.index("PRINT BODY"))
-        self.assertIn("- **3D tisk** — apply when the part is printed", text)
+        self.assertIn("- **3D print** — apply when the part is printed", text)
         self.assertEqual(self.warnings, [])
 
     def test_playbook_without_trigger_still_appears(self):
@@ -66,7 +66,7 @@ class FakeHarness(unittest.TestCase):
 
     def test_missing_registry_degrades_to_empty_with_a_warning(self):
         label, text = harness.assemble_harness(self.dir, warn=self.warnings.append)
-        self.assertEqual(label, "úplný harness (0 playbooků)")
+        self.assertEqual(label, "full harness (0 playbooks)")
         self.assertEqual(text, "")
         self.assertEqual(len(self.warnings), 1)
 
@@ -78,12 +78,12 @@ class FakeHarness(unittest.TestCase):
 
     def test_unreadable_playbook_warns_but_keeps_the_rest(self):
         self.write_registry({"always_include": ["core.md"], "playbooks": [
-            {"id": "gone", "file": "gone.md", "label": "Chybí"},
+            {"id": "gone", "file": "gone.md", "label": "Missing"},
         ]})
         self.write("core.md", "CORE BODY")
         _, text = harness.assemble_harness(self.dir, warn=self.warnings.append)
         self.assertIn("CORE BODY", text)
-        self.assertIn("- **Chybí**", text)  # index still lists it
+        self.assertIn("- **Missing**", text)  # index still lists it
         self.assertEqual(len(self.warnings), 1)
 
     def test_label_template_is_overridable_for_the_eval_runner(self):

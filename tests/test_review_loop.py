@@ -191,7 +191,7 @@ class PanelWiring(unittest.TestCase):
 
     def test_escalation_replaces_the_model_for_the_corrective_round(self):
         self.assertIn("_autofix_model", self.source)
-        self.assertIn('model_label = "%s (eskalace)" % escalated', self.source)
+        self.assertIn('model_label = "%s (escalated)" % escalated', self.source)
 
     def test_reviewer_gets_the_precheck_report(self):
         self.assertIn("format_precheck_report(self._run_prechecks())", self.source)

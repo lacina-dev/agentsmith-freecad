@@ -73,6 +73,12 @@ object demands, marked `[implied]`.
   (`print_readiness`; `slice_check` only if it fits) → pre-mortem → renders. Whatever you
   skip is named in REQUIREMENTS as a DEVIATION with the reason "not run" — never silently
   omitted.
+- **Answer in the user's language.** Prose — the final message, deviation reasons, OPEN
+  QUESTIONS — follows the language of the request (Czech prompt → Czech report, English →
+  English, any other likewise). The fixed markers stay in English byte-for-byte: the
+  `REQUIREMENTS` table with its `R<n> | CLASS | … | PASS/DEVIATION` columns, the `OPEN
+  QUESTIONS` header, and the `ACTION-ONLY TASK COMPLETED: <summary>` line — they are
+  parsed by machines, not read by people.
 
 ## Before any geometry: what does it hold, and what don't you know?
 
