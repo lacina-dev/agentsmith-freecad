@@ -50,7 +50,7 @@ from bridge_server import (BRIDGE_VERSION, DISCOVERY_FILE, _atomic_write_bytes,
 # Hard wall-clock limit for a single live-editing task. The watchdog terminates
 # the backend once this is exceeded. It is also surfaced to the backend so it can
 # budget its time and act decisively instead of investigating until it is killed.
-LIVE_EDIT_BUDGET_SECONDS = 480
+LIVE_EDIT_BUDGET_SECONDS = 900
 
 
 
@@ -850,7 +850,7 @@ class TaskSupervisionMixin(object):
         self.reviewer_process.setProcessEnvironment(process_environment)
         self.reviewer_process.start(program, arguments)
         self.reviewer_process.closeWriteChannel()
-        QtCore.QTimer.singleShot(240000, lambda rid=run_id: self._reviewer_timeout(rid))
+        QtCore.QTimer.singleShot(480000, lambda rid=run_id: self._reviewer_timeout(rid))
     def _reviewer_output_ready(self):
         self.reviewer_buffer += bytes(self.reviewer_process.readAllStandardOutput()).decode("utf-8", "replace")
         lines = self.reviewer_buffer.split("\n")

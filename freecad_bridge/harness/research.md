@@ -1,34 +1,28 @@
-# Playbook: research real-world dimensions, then model
+# Playbook: acquiring the numbers you don't have
 
-Goal: when the request references a real object/standard whose dimensions you don't
-know, gather trustworthy measurements first, then model parametrically.
+Goal: every dimension traces to a source. Everyday-object ranges are tabulated in
+`reference-dimensions.md`; this playbook is *how* to get a number you don't have.
 
-## 1. Identify what must be looked up
+## 1. Where this starts
 
-- List the exact quantities you need (e.g. DIN 912 M6 socket-head cap screw head
-  diameter and height, a standard EU pallet footprint, a Raspberry Pi 5 board outline
-  and mounting-hole pattern).
-- Only research what you cannot derive; don't look up things the user already specified.
+`core`'s six-point gap sweep and its LOOKUP / DERIVABLE / ASSUME sort run first; the
+**LOOKUP** bin lands here. This playbook is only *how* to get the number. Do not look up
+what the user already gave you.
 
-## 2. Gather from the internet, then sanity-check
+## 2. Sources: prefer primary, never invent one
 
-- Use your available web search/fetch tools to find the values. Prefer primary or
-  authoritative sources: official standards (ISO/DIN/EN), manufacturer datasheets,
-  mechanical drawings — over forum posts.
-- Cross-check each critical number against a second source. Note units and tolerances.
-- Record what you found and where: keep a short table of `quantity = value [unit]
-  (source)` and include it in your final report so the numbers are auditable.
+- Standards (ISO/DIN/EN), datasheets and dimensioned drawings beat vendor pages, which
+  beat forum posts. Note units and tolerances.
+- **Cross-check every critical number against a second, independent source.** Where they
+  disagree, keep the range rather than averaging it away.
+- **Never fabricate a citation.** With no web tool, say so and tag the value `RECALL` —
+  an invented URL or standard number is worse than an honest assumption, because it
+  cannot be checked.
 
-## 3. Turn findings into parameters
+## 3. Record it, auditably
 
-- Put every researched value into the `Parameters` Spreadsheet as an aliased cell, so
-  the model documents its own dimensional assumptions and stays editable.
-- If a value is uncertain, pick the standard/nominal value, alias it, and flag the
-  assumption in your report.
-
-## 4. Model and verify
-
-- Build natively and parametrically as in the modeling playbook.
-- Verify the finished geometry reproduces the researched dimensions via `model_digest`.
-
-Deliver a real, validated, saved mutation and cite your dimensional sources.
+- Report a table of `quantity = value [unit] (core provenance tag)`.
+- Put every researched value into `Parameters` as an aliased cell, so the model documents
+  its own assumptions and stays editable.
+- Verify the geometry reproduces those numbers (`model_digest`) and state which
+  variant/standard you designed for.

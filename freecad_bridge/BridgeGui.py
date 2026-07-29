@@ -247,7 +247,14 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
         self.model.currentIndexChanged.connect(self._model_changed)
         self.budget_choice = QtWidgets.QComboBox()
         self.budget_choice.setToolTip("Časový rozpočet úlohy. Po jeho vyčerpání watchdog backend ukončí a dokument vrátí zpět.")
-        for budget_label, budget_seconds in (("Rychlá úprava (8 min)", 480), ("Nový díl (15 min)", 900), ("Sestava (25 min)", 1500)):
+        for budget_label, budget_seconds in (
+            ("Rychlá úprava (8 min)", 480),
+            ("Nový díl (15 min)", 900),
+            ("Sestava (25 min)", 1500),
+            ("Složitý díl (30 min)", 1800),
+            ("Velká sestava (45 min)", 2700),
+            ("Maraton (60 min)", 3600),
+        ):
             self.budget_choice.addItem(budget_label, budget_seconds)
         saved_budget = self.preferences.GetString("TaskBudgetSeconds", str(LIVE_EDIT_BUDGET_SECONDS))
         budget_index = self.budget_choice.findData(int(saved_budget)) if str(saved_budget).isdigit() else -1
@@ -690,7 +697,7 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
             self._log("MCP requested but mcp_server.py is missing — using the bridge CLI client.")
             return None
         settings = {"name": agentsmith_backends.MCP_SERVER_NAME,
-                    "command": sys.executable or "python3", "args": [server]}
+                    "command": agentsmith_backends.mcp_python(), "args": [server]}
         try:
             config_dir = os.path.join(project, ".agentsmith")
             os.makedirs(config_dir, exist_ok=True)

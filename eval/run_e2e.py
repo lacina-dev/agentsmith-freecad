@@ -222,7 +222,7 @@ def mcp_settings(project_dir):
               file=sys.stderr)
         return None
     settings = {"name": agentsmith_backends.MCP_SERVER_NAME,
-                "command": sys.executable or "python3", "args": [server]}
+                "command": agentsmith_backends.mcp_python(), "args": [server]}
     try:
         config_dir = os.path.join(project_dir, ".agentsmith")
         os.makedirs(config_dir, exist_ok=True)
@@ -448,7 +448,10 @@ def check_preconditions(force):
         raise PreconditionError(
             "FreeCAD bridge unreachable — nothing was run.\n\n%s\n\n"
             "run_e2e.py needs a LIVE FreeCAD with the AgentSmith bridge panel running "
-            "in Edit + Python-enabled mode." % exc)
+            "in Edit + Python-enabled mode.\n"
+            "Start (or reuse) one with:  python3 eval/host_bridge.py\n"
+            "It reuses a live bridge and never launches a second FreeCAD — do not "
+            "launch the AppImage by hand in a loop." % exc)
     except run_eval.BridgeCallError as exc:
         raise PreconditionError("Bridge responded with an error to 'ping': %s" % exc)
 
@@ -668,8 +671,10 @@ def main(argv=None):
     parser.add_argument("--repeat", type=int, default=1, metavar="N",
                         help="Run each task N times (default 1). Use 3+ for anything "
                              "you intend to keep as a baseline — a single run is noise.")
-    parser.add_argument("--task-timeout", type=int, default=900, metavar="SECONDS",
-                        help="Hard wall-clock limit per backend task run (default: 900)")
+    parser.add_argument("--task-timeout", type=int, default=1800, metavar="SECONDS",
+                        help="Hard wall-clock limit per backend task run (default: 1800). "
+                             "The old 900 default was hit by finishing runs (printed_wall_hook "
+                             "at 901 and 902 s), so it measured who fit, not how long it takes.")
     parser.add_argument("--discovery", default=DEFAULT_DISCOVERY, metavar="PATH",
                         help="Bridge discovery JSON file (default: %(default)s)")
     parser.add_argument("--force", action="store_true",

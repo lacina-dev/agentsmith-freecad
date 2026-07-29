@@ -29,6 +29,18 @@ Cantilever with an end deflection `δ` (the undercut it must clear during assemb
   required deflection; don't make it deeper than the beam can safely flex.
 - Add a **root fillet ≥ 0.5 · t** — the sharp root is the usual failure point.
 
+## Force to operate (report it in newtons — `design` §4 wants 2–10 N)
+
+- **Deflection force** at the tip of a straight cantilever:
+  **P ≈ b · t³ · E · δ / (4 · L³)** (b = beam width, E = flexural modulus: PLA ~3500,
+  PETG ~2000, ABS ~2200, PA ~1500 MPa). A 0.5 taper carries the same δ at roughly
+  **1.6 × P** — apply that factor when the beam is tapered.
+- **Insertion force** over the lead-in: **F_ins = P · (µ + tan α) / (1 − µ · tan α)**,
+  µ ≈ **0.3** for printed plastic on plastic, α = the lead-in angle (25–30°). Retention
+  force uses the same expression with the retention angle.
+- Too high → **lengthen or thin the beam** (P falls with L³, rises with t³); do not cut
+  the undercut, which is the engagement you are relying on.
+
 ## FreeCAD build recipe
 
 1. Aliases: `BeamL`, `BeamT`, `BeamW`, `Undercut`, `LeadAngle` (=30), `RetainAngle`,

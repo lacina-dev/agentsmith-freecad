@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 7,
   "comment": "Modeling harness library. 'core.md' is always prepended. EVERY file in 'playbooks' is ALWAYS provided to the backend; there is no exclusive mode. The agent applies each playbook whose 'trigger' matches the part's character or how it will be used, and ignores the ones that don't apply. To extend the harness, drop a <id>.md file into this directory and add an entry below with a short 'trigger'. 'lessons.md' is always included: it carries distilled rules from real failed/rejected tasks — append an entry there after every such failure, and promote matured rules into the right playbook.",
   "always_include": [
     "core.md",
@@ -59,6 +59,12 @@
       "label": "3D tisk (FDM/FFF)",
       "file": "print3d.md",
       "trigger": "the part will be 3D printed by filament — design it support-minimal"
+    },
+    {
+      "id": "design",
+      "label": "Design a ergonomie",
+      "file": "design.md",
+      "trigger": "always for parts a person sees, holds, or operates — edge treatment, grip and clearance ergonomics, proportion/radius language, stability, cosmetic surfaces and labels"
     },
     {
       "id": "manufacture",

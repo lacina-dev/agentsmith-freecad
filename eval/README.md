@@ -79,6 +79,14 @@ If `/tmp/freecad-agentsmith-bridge.json` is missing, unreadable, or the socket
 connection is refused, `run_eval.py` prints clear guidance and exits `2`
 instead of throwing a traceback.
 
+To host a bridge for unattended runs, use `python3 eval/host_bridge.py`: it
+**reuses a live bridge when one answers** and only launches a FreeCAD AppImage
+(Edit + Python, sandbox `EvalHost` document) when none does, waiting out the
+slow AppImage boot. Never launch the AppImage by hand in a retry loop — an
+instance that is still booting looks exactly like a dead one, and each retry
+leaves another GUI instance behind. `--status` / `--stop` / `--replace` manage
+the instance it launched.
+
 ## Task JSON schema
 
 Each file in `eval/tasks/*.json` is one golden task:

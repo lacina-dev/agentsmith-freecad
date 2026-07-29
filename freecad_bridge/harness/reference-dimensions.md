@@ -1,25 +1,22 @@
 # Playbook: dimensions of everyday objects
 
-For parts that hold or fit something that already exists. The numbers below are
-**ranges, not constants** — that is the whole point of the table. Most of these
-objects vary by market and brand by tens of millimetres, which is exactly enough
-to turn a holder into a decoration.
+For parts that hold, fit or mount to something that already exists. The numbers are
+**ranges, not constants** — most of these objects vary by market and brand by tens of
+millimetres, which is exactly enough to turn a holder into a decoration.
 
 ## How to use this table
 
-1. Find the object. If it is not here, look it up (see the "Průzkum" playbook) —
-   do not guess because it feels familiar.
-2. **Design for the top of the range**, then add clearance. A holder built for the
-   smallest variant is broken for everyone else; one built for the largest merely
-   looks slightly generous with a small roll.
-3. Write the chosen value and the variant into the `Parameters` spreadsheet, and
-   say in your report which variant you designed for.
-4. Cross-check anything critical against a second source. Where the sources here
-   disagreed, the disagreement is left in rather than averaged away.
+1. Find the object; if it is not here, look it up (`research.md`) — do not guess
+   because it feels familiar.
+2. **Design for the top of the range**, then add clearance — a holder built for the
+   smallest variant is broken for everyone else.
+3. Write the chosen value and the variant into `Parameters`, and say in the report which
+   variant you designed for.
+4. Cross-check anything critical against a second source; where sources here disagreed,
+   the disagreement is left in rather than averaged away.
 
-Clearance starting points (FDM, tune to the print): sliding/loose fit 0.4–0.8 mm
-per side; something the user drops in and pulls out 1–3 mm per side; anything
-that must work when the print came out slightly oversized, more.
+**Handling allowance** — what the user drops in and pulls out by hand: **1–3 mm per
+side**, more where they cannot see. That is not a fit; fits live in `tolerances.md` §4.
 
 ## Paper and household
 
@@ -35,12 +32,32 @@ that must work when the print came out slightly oversized, more.
 
 | Object | Key dimension | Notes |
 |---|---|---|
-| M3 / M4 / M5 / M6 screw | clearance hole Ø 3.4 / 4.5 / 5.5 / 6.6 mm | medium fit; see "Spojovací materiál" |
+| M3 / M4 / M5 / M6 screw | clearance hole Ø 3.4 / 4.5 / 5.5 / 6.6 mm | medium fit; `fasteners.md` |
 | M3 / M4 / M5 / M6 nut (DIN 934) | across flats 5.5 / 7 / 8 / 10 mm | pocket needs +0.2–0.3 mm |
 | M3 / M4 / M5 threaded rod | Ø 3 / 4 / 5 mm | through-hole for reinforcement: nominal + 0.3–0.5 mm |
 | Heat-set insert M3 | Ø 4.0–4.6 mm boss hole | **always check the datasheet** — brands differ |
-| 608 bearing | 22 × 8 × 7 mm | press seat is NOT 22 mm; see lesson L8 |
+| 608 bearing | 22 × 8 × 7 mm | press seat = OD − 2 × interference, never 22 mm (`tolerances.md` §2) |
 | 625 bearing | 16 × 5 × 5 mm | |
+
+## Mounting surfaces (they decide the fixing the user must buy)
+
+| Surface | Fixing | Safe pull-out per fixing |
+|---|---|---|
+| Plasterboard 12.5 mm, no stud | metal/spring toggle | 15–25 kg (plain plug ~5 kg = unsafe) |
+| Plasterboard into stud | 4.5–5 × 60 mm wood screw | 40–60 kg; studs at 400/600 mm |
+| Brick / concrete | Ø6 nylon plug + 5 × 50 mm screw | 40–80 kg; hollow brick ≈ plasterboard |
+| Aerated concrete (Ytong) | spiral anchor | 10–20 kg; plain plugs pull out |
+| Chipboard 16–18 mm | Ø4 × 30 mm screw or M4 through-bolt | 15–25 kg |
+
+**An offset load is a moment, not a pull:** tension on the outermost fixing ≈
+`F × standoff / fixing spacing` + its share of the direct pull. Compute **that** and
+compare it against the table (`mechanics.md` §1) — a 5 kg towel at 40 mm standoff on
+screws 60 mm apart adds ~3.3 kg to the top screw. Two fixings **in a vertical line**
+resist rotation; two side by side do not.
+
+Tile: drill through into the wall behind, never anchor in the tile. **Report surface,
+fixing, count and the margin against the design load** (`strength.md`); ≥ 2 fixings on
+anything that could rotate (L10).
 
 ## Electronics
 
@@ -62,7 +79,6 @@ that must work when the print came out slightly oversized, more.
 
 ## When the number matters more than convenience
 
-Anything load-bearing, press-fitted or safety-related does not get taken from this
-table. Look up the actual standard or datasheet, note the source in your report,
-and put a tolerance on it. This table is here to stop confident guesses about
-everyday objects — not to replace an engineering drawing.
+Anything load-bearing, press-fitted or safety-related does not come from this table:
+look up the standard or datasheet, cite it, and put a tolerance on it. This table stops
+confident guesses about everyday objects; it does not replace a drawing.

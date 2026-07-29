@@ -1,150 +1,220 @@
 # Playbook: designing for FDM 3D printing (support-minimal and strong)
 
-Apply whenever the part will be printed on a filament (FDM/FFF) printer. Goal: a part
-that prints cleanly with minimal support **and** is strong in the direction it is
-loaded. Values are typical for a **0.4 mm nozzle, ~0.2 mm layers**; treat as defaults
-and scale with the real nozzle/line width and material. Pick the **material first**
-(`materials.md`) — it sets overhang behaviour, warp risk and minimum walls.
+Apply whenever the part will be printed on filament (FDM/FFF). Defaults assume a
+**0.4 mm nozzle, 0.45 mm line, 0.2 mm layers**. Pick the **material first**
+(`materials.md`) — it sets overhangs, warp and walls.
 
-## 1. Orientation strategy — decide this FIRST
+## 1. Orientation first — chosen before the first sketch
 
-Orientation is the single biggest lever on strength, surface, supports and time. Choose
-it before detailing geometry, and **state the chosen build orientation in the report.**
+Biggest lever on strength, surface, supports and time; a **design input, not a slicer
+setting**. State it in the feature plan (`model.md` §3) before any geometry, as
+`build axis | bed face | layer direction | show face`.
 
-- **Strength before looks:** put the **strongest direction (in-plane / XY) along the
-  principal stress**. Layer lines must **not run across bending tension** — a printed
-  beam loaded to bend must have its layers running along its length, not stacked across
-  the tension face (that face peels layers apart; see the anisotropy knockdown in
-  `materials.md` and load path in `strength.md`).
-- **Flat, stable base:** largest flat face on the plate for adhesion and to remove the
-  base overhang; a stable footprint won't tip mid-print.
-- **Minimal supports:** pick the orientation that minimizes overhang area and support
-  contact on cosmetic/critical faces (quantify with `print_readiness`, §7).
-- These three often conflict — **strength usually wins** for a load-bearing part; note
-  the trade-off you made. If no single orientation works, **split the part** along a
-  hidden seam into support-free sub-parts and rejoin with dowels/pegs (~0.2–0.3 mm
-  clearance on mating pins).
+- **Model in the print pose:** document **+Z is the build direction** — `print_readiness`
+  and the graders default to `up_axis: z`. Pick sketch planes so the part is *born* in that
+  pose; rotating a Placement afterwards drags every datum with it. If the functional pose
+  differs, keep the print pose, state both, and verify the functional one by axis per
+  `verify.md` (L1/L2 are about axes, not about which way up you print).
+- **On an extruded-profile part printability is a property of the sketch:** every
+  down-facing segment within 45° of vertical, every open span inside the §2d budget.
 
-## 2. Strength: walls and infill (perimeters do the work)
+### 1b. Score the six poses numerically, on the blocked-out solid
 
-- **Perimeters/walls carry most of the load, not infill.** Use **3–4+ perimeters** for
-  structural parts (≈ 1.2–1.6 mm of solid shell at 0.4 mm line width). Adding perimeters
-  beats raising infill for stiffness and strength per gram.
-- **Infill 15–40 % typical**; ~20 % is a fine default. **100 % infill is rarely
-  justified** — it costs time/warp for little gain once walls are adequate; reserve it
-  for small, highly-loaded solids.
-- **Solid top/bottom layers count** as structure — 4–6 solid layers close the shell and
-  add bending stiffness to flat parts.
-- A strong printed part = **thick shell (perimeters + solid faces) around modest infill**,
-  oriented so the shell takes the load in-plane.
+Before chamfers and cosmetics. `up_axis` is a *view* on the same geometry — no
+rotation, no rebuild, six read calls:
+`print_readiness '{"up_axis": "z"}'`, then `-z`, `x`, `-x`, `y`, `-y`.
 
-## 3. Overhangs, bridges, holes
+Tabulate `overhang_area_pct`, `bottom_area`, `worst_overhangs[0].angle_deg` per axis; the
+table goes in the report as evidence the pose was chosen, not inherited from whichever
+plane you sketched on. Then rank:
 
-- **Self-supporting ≤ ~45–55° from vertical** — steeper (more horizontal) down-faces sag
-  and need support. Replace 90° ledges with a **45° chamfer** or a fillet that keeps the
-  local slope ≤ 45°. Turn "T" overhangs into "Y" slopes (YHT rule).
-- **Bottom edges: chamfer, not fillet.** A fillet on a down-facing edge becomes a
-  shallow overhang that droops; a 45° chamfer stays self-supporting.
-- **Horizontal holes** (axis parallel to bed) sag at the top: best is to orient the hole
-  **vertical**; else make the top a **teardrop / diamond** (~45° peak) or add a 45°
-  chamfer at the top of the bore. Small horizontal holes (Ø ≲ 6–8 mm) print round enough
-  as-is.
-- **Bridges** (flat spans across a gap) print reliably to **~5–10 mm** (up to 15–25 mm
-  with strong cooling at the cost of surface). Keep unsupported spans **≤ ~10 mm**, below
-  5 mm safest; else arch the underside ≤ 45°, split, or accept support.
+1. **Reject `bottom_area == 0`** (rests on an edge or point), `bottom_area` < 400 mm²
+   above 40 mm tall, or height : smallest footprint dimension worse than **4 : 1** —
+   unless you add a printed foot or state a brim.
+2. **Reject** any pose putting principal tensile/bending stress across the layers (Z/XY
+   knockdown 0.3–0.9, `materials.md`). Strength beats support count on a loaded part.
+3. Among survivors: **lowest `overhang_area_pct`**.
+4. Tie-break on cosmetics: visible, sealing and mating faces off the bed and above all
+   **off support** — support scars a face and destroys its tolerance, so bearing seats
+   and sliding/sealing faces stay self-supporting even if the rest is not.
 
-## 4. Dimensional compensation (design around FDM's biases)
+**§1 vs §1b:** plan a pose in the feature plan, block out the solid **in it**, then sweep.
+If another axis wins, **re-sketch so the winner becomes +Z** before detailing — never
+rotate a Placement, and never deliver a model whose build axis is not `z`.
 
-- **Vertical holes print undersize** (stair-stepping + flow): oversize the modelled Ø by
-  **+0.2–0.4 mm**, or design for **drilling/reaming** critical bores to size.
-- **Elephant's foot** (squished first layers bulge out): add a **0.3–0.5 mm × 45°
-  chamfer on bottom edges** so the base still fits its mating dimension.
-- **Clearances between parts:** ~**0.2–0.3 mm** for a horizontal press/snug fit,
-  **0.4–0.5 mm** for a free sliding/moving fit. Holes and slots need more than
-  bosses/pins because both surfaces shift inward. Link `tolerances.md` for fit classes.
+## 2. Overhangs, bridges, holes
 
-## 5. Minimum robust features (0.4 mm nozzle)
+### 2a. 45° is the default, 60° is earned
 
-- **Wall ≥ 2 perimeters (~0.9–1.2 mm)**; structural walls ≥ 3–4 perimeters. Make walls a
-  multiple of line width so perimeters pack cleanly with no thin gap-fill.
-- **Pins/posts ≥ 3 mm** diameter — thinner ones are fragile and wobble while printing.
-- **Embossed/engraved detail:** raised text ≥ **2 mm tall** and features ≥ 0.6 mm wide;
-  **engraved ≥ 0.6 mm deep**. Engrave rather than emboss very fine detail.
+The limit is how much of each layer lands on the one below:
+**θ_max ≈ atan(0.5 · line_width / layer_height)**, θ from **vertical** — 0.45/0.20 →
+**48°**, 0.45/0.15 → **56°**, 0.45/0.10 → **66°**.
 
-## 6. First layer, adhesion, warping, seams
+| material / cooling | usable θ from vertical |
+|---|---|
+| PLA, full part cooling | 55–60° |
+| PETG | 45–50° |
+| ABS/ASA/PC (enclosed, low fan) | 40–45° |
+| TPU or any damp filament | ≤ 40°, short runs |
 
-- **Broad flat base** beats tiny contact points (sharp points on the bed lift).
-- **Warp-prone materials** (ABS/ASA, big flat parts) pull corners up: **round or chamfer
-  corners**, add a **brim/mouse-ears**, keep an enclosure, avoid large unbroken flat
-  bottoms. PLA/PETG warp little.
-- **Seam placement:** the perimeter start-point seam is a cosmetic and slight weak line —
-  put it on a hidden/inside edge; keep it off sealing surfaces and away from the
-  highest-tension fibre where possible.
+- **Design to 45°** unless all three hold: the material row allows more, layer
+  ≤ 0.15 mm, face neither cosmetic nor loaded.
+- **Cut self-supporting slopes at 40–42°, not a hard 45°** — tessellation and slicer
+  rounding push an exact 45° face over the line.
+- Raising `overhang_deg` above 45 **loosens** the check (flagged when
+  θ < 90 − `overhang_deg`): pay for a claim past 45° with `slice_check`
+  `supports_generated: false`, never by relaxing the threshold.
 
-## 7. Verification tie-in (numeric, not eyeballed)
+### 2b. Every down-facing feature gets a 45° roof
 
-- **`cross_section`** through walls/pockets → proves true wall thickness and that
-  cavities exist (section area, closed-wire count, section bbox). Cite the numbers, not
-  an outside screenshot.
-- **`print_readiness`** → returns the **overhang faces exceeding a ~45° threshold and
-  their areas, per up-axis**. Run it for candidate orientations to pick the one with the
-  least support-needy area, and to prove numerically that no unsupported face is too
-  steep. (State the up-axis you chose.)
-- **`export` to STL** exists for handing the solid to a slicer for future
-  print-time/support preview.
-- Keep every rule above **driven by `Parameters` aliases** (overhang angle, wall,
-  clearances, chamfers) so print-readiness stays editable.
+| down-facing feature | support-free form |
+|---|---|
+| ledge, shelf, step | 45° chamfer underneath, full overhang depth |
+| boss/lug/pin off a wall | 45° gusset (`patterns/rib_gusset.md`) |
+| bottom edge on the bed | 0.4–0.6 mm × 45° chamfer (§5) |
+| down-facing **fillet** | chamfer of the same offset — a fillet turns horizontal at its lowest tangent |
+| horizontal bore Ø > 8 mm | teardrop or diamond top (§2c) |
+| counterbore / nut-trap ceiling | bridge inside the §2d budget, else a 45° cone |
+| roof of an internal void | pitched roof (two 45° slopes to a ridge) or a cone |
 
-## Slice check (real slicer feedback)
+Build **overhang-removing** geometry (ledge roofs, gussets, bore crowns) into the sketch or
+as a Pad taper, **not a `Chamfer` on face/edge names** — one a rebuild drops takes
+printability with it. **Exception: the bed-edge chamfer** — those edges are the extruded
+sketch outline, unreachable from the sketch, and a taper would draft the whole wall, so a
+`Chamfer` feature is correct there; drive it from `ChamferBottom` and re-apply it if a
+rebuild drops it.
 
-`print_readiness` and `cross_section` are geometric estimates; the **slicer is
-ground truth**. Once the model passes the geometry checks above, run the real
-slicer and read what it actually produces. From the project directory:
+### 2c. Horizontal bores: find them with `feature_probe`
 
-```
-python3 freecad_bridge/slice_check.py --from-bridge       # slice the live model
-python3 freecad_bridge/slice_check.py part.stl --json     # or an exported file
-```
+Every bore with **|dot(axis, up)| ≤ 0.35** (within ~20° of horizontal) must roof itself:
 
-It exports the current model (via the bridge), slices it headless for the
-configured printer (Prusa MK3.x / PETG, see `slicer-config.json`) and reports
-**estimated print time, filament used (g / mm / cm3), layer count, whether
-supports were generated, and any slicer warnings** (e.g. object off bed, empty
-layers). Exit 0 = sliced; 1 = the slicer rejected the geometry (read the log
-tail — often a non-watertight mesh, fix per `fix.md`); 2 = setup problem.
+- **Ø ≤ 6 mm** round as-is; **Ø 6–10 mm** 45° chamfer at the bore top or an oval crown.
+- **Ø > 10 mm or must stay round** — **teardrop** (two 45° tangents to an apex **1.41 · R
+  above centre**) for a rod/screw through it; **diamond** (top arc → two 45° flats) where
+  something flat sits above it.
+- **Bearing seat, sliding fit, sealed bore** — neither is acceptable: rotate the bore
+  vertical, or **split on its centre plane** into two half-bores facing up (§2e).
 
-- **Supports generated on a part meant to print support-free is a defect, not a
-  statistic.** The slicer adds threshold-based support only where a down-face is
-  too steep — so `supports_generated: YES` (or non-zero overhang/bridge regions)
-  means the geometry still has an overhang the design was supposed to remove.
-  Go back to **§1 orientation** and **§3 overhangs/bridges/holes** (re-orient,
-  chamfer the ledge, teardrop the hole, split the part) and re-slice until it is
-  support-free — or consciously accept the support and say so.
-- **Investigate every warning** before reporting success; a warning is the
-  slicer telling you the print will misbehave.
-- **Put the numbers in the final report:** print time, filament grams, layer
-  count, supports yes/no. They are the strongest printability evidence you have
-  because they come from the real slicer, not a geometric guess.
+### 2d. Bridge span budget
 
-## 8. Printability checklist (the `verify` playbook can reference this)
+A bridge is a flat span **anchored at both ends at the same height**; one starting on a
+slope or on another bridge droops.
 
-1. **Orientation stated**, principal load in-plane, layers not across bending tension.
-2. Largest flat face on the plate; stable footprint.
-3. No unsupported down-face steeper than ~45° (or chamfered/teardropped) —
-   confirm with `print_readiness`.
-4. No unsupported bridge > ~10 mm.
-5. Bottom edges chamfered (elephant's foot + no down-facing fillet).
-6. Walls ≥ 2 perimeters (structural ≥ 3–4); pins ≥ 3 mm; text ≥ 2 mm tall / 0.6 mm.
-7. Vertical holes oversized +0.2–0.4 mm or flagged for reaming; fits use printed
-   clearances (~0.2 snug / 0.4–0.5 free).
-8. Warp control on large flat ABS/ASA (rounded corners / brim).
-9. `cross_section` confirms real wall thickness; `check_solid` is one watertight solid.
+| material / cooling | max span | design to |
+|---|---|---|
+| PLA, full cooling | 25 mm | ≤ 15 mm |
+| PETG | 15 mm | ≤ 10 mm |
+| ABS/ASA/PC, enclosed | 10 mm | ≤ 6 mm |
+| TPU, damp filament | 5 mm | avoid |
 
-## Sources (corroborated across multiple references)
+Sag grows with span² and **a bridge underside is never dimensionally accurate** — no fit,
+seal or datum there. Over budget: arch the underside ≤ 45°, add a mid-span rib or pillar,
+use a **pointed arch** (two 45° slopes to a ridge, no bridging), or split.
 
-- Prusa Knowledge Base — designing for FDM, overhangs/bridges/supports, orientation,
-  teardrop holes, elephant's foot.
-- Protolabs & Hubs — FDM design guidelines (min wall, min hole/pin, clearances, holes
-  print undersize, text height).
-- Markforged / Stratasys — orientation and the YHT rule; perimeters-vs-infill and
-  anisotropy from Prusa/MatterHackers mechanical testing.
+**Captive voids** (nut trap, magnet pocket) are roofed by a bridge: model a
+**sacrificial ceiling 1–2 layers thick (0.2–0.4 mm)** across the void's **smaller**
+dimension, then the geometry above it. A hex trap bridged corner-to-corner instead of
+across flats collapses.
+
+### 2e. When no pose works: split — the trigger is numeric
+
+Split when, **after** the chamfer pass, the best pose still gives `overhang_area_pct`
+> 15 %, `slice_check` puts support on a cosmetic/functional face, or the part exceeds the
+bed.
+
+- Each half needs a **flat bed face and no down-face steeper than 45°** — split through
+  the worst overhang, a horizontal bore's centre plane, or a shadow line where the seam
+  reads as a design line, and keep the joint **out of peak tension**. Re-run the §1b sweep
+  **per half**: a good split makes both support-free; if not, the plane is wrong.
+- Say what joins the halves — "they touch" is not a joint (L10) and one pin is a hinge:
+  **≥ 2 alignment pins** (Ø4–6 mm, depth ≥ 1.5 × Ø, **0.15–0.25 mm** clearance, all of it
+  in the hole) plus a glue face ≥ 200 mm² with a 0.3 × 1 mm squeeze-out groove; or screws
+  into inserts; or a rod through both (`assembly.md` §3). Key it so it assembles one way
+  only; report what the user must buy.
+
+## 3. Dimensional compensation (FDM's biases)
+
+- **Vertical holes print undersize:** oversize Ø by **+0.2–0.4 mm**, or design for
+  drilling/reaming critical bores to size.
+- **Clearances:** the fit table lives in `tolerances.md` §4 — use it, do not invent
+  numbers; holes/slots need more than bosses/pins (both surfaces shift inward).
+
+## 4. Minimum robust features (0.4 mm nozzle)
+
+**Nothing thinner than one extrusion survives, and the slicer drops it silently.** Walls
+are whole multiples of line width — **0.9 / 1.35 / 1.8 mm**; 1.0 mm prints as 0.9 plus a
+gap-fill scar. **Perimeters carry the load, not infill:** 3–4 perimeters on a structural
+part, infill 15–40 % (20 % default), 4–6 solid top/bottom layers.
+
+| feature | minimum | structural / safe |
+|---|---|---|
+| wall | 0.9 mm (2 lines) | 1.6–1.8 mm (4 lines) |
+| free-standing pin/post | Ø3 mm, **height ≤ 8 × Ø** | Ø4–5 mm |
+| printable hole | Ø2 mm (below that it closes) | Ø3 mm+ |
+| slot / gap | 0.8 mm | 1.2 mm |
+| embossed text (never on a down-face) | cap 2 mm, **stroke ≥ 0.8 mm**, relief 0.4–0.6 mm | 3 mm / 1.2 mm |
+| engraved text | depth ≥ 0.4 mm (2 layers) | 0.6 mm |
+
+`print_readiness` returns **`min_bbox_dim`** per object: under 3 mm the *whole part* has a
+fragile dimension, not just a detail — reconsider the geometry.
+
+## 5. First layer, adhesion, warping, seams
+
+- **All bed-touching faces coplanar**, from one alias — feet at different heights rock
+  and fail the first layer.
+- **0.4–0.6 mm × 45° chamfer on every bottom edge**: the elephant's-foot bulge is
+  0.1–0.3 mm, so anything smaller disappears into it.
+- **Bed contact ≥ 400 mm²** (`bottom_area`), height : smallest footprint dim **≤ 4 : 1**;
+  past that add a printed foot, widen the base or state a brim.
+- **ABS/ASA/PC:** bottom corners **R ≥ 3 mm** (warp lifts start at sharp corners), no
+  unbroken flat bottom wider than ~100 mm, enclosure stated.
+- **Surface quality follows orientation.** Best → worst: **vertical wall ≈ bed face** >
+  flat top > up-slope ≥ 30° > up-slope < 20° (stair-steps) > down-slope > **any face
+  support touched** (scarred, tolerance gone); keep what the user sees and touches in the
+  top half. A fillet on a **vertical** edge is smooth, on a **horizontal** one it
+  stair-steps: fillet vertical edges for looks, chamfer horizontal ones to print.
+- **Seam:** the perimeter start leaves a line up the part — hide it in a sharp concave
+  corner, a 0.5 mm cosmetic groove or the back face, off sealing/sliding faces and the
+  highest-tension fibre, and say where you put it.
+
+## 6. Acceptance gate: `print_readiness` + slice check
+
+Geometry is an estimate, the **slicer is ground truth**: pass all four, numbers in the
+report.
+
+1. **`print_readiness`** at the real build axis, `overhang_deg` = the angle you claim
+   (45 default): `overhang_area_pct` **≤ 10 %** (the eval budgets 15–25 %, so this leaves
+   margin); `bottom_area` **> 0**; **no `worst_overhangs` entry with `area` ≥ 25 mm²** at
+   the `overhang_deg` you claim — the angle bar is already encoded in `overhang_deg`, and
+   entries under 5 mm² are tessellation noise. Read it right:
+   **`angle_deg` is from straight-down — 0° = flat underside (worst), 90° = vertical wall
+   (fine)**; the list is worst-first, so fix `worst_overhangs[0]` and re-run.
+2. **Slice check** — the real slicer, run from the project directory, next to
+   `freecad_bridge_client.py` (L5): `python3 slice_check.py --from-bridge --json`.
+   It slices the live model for the configured printer (`slicer-config.json`) and reports
+   print time, filament (g / mm / cm³), layer count, `supports_generated`, `support_lines`,
+   `overhang_wall_regions`, `bridge_regions`, warnings. Exit 1 = geometry rejected
+   (usually a non-watertight mesh → `fix.md`); 2 = setup.
+   **`supports_generated: false` is the pass/fail**; the region counts locate residual
+   risk (bridges over hole roofs are normal, a rising overhang-wall count is not).
+3. Surviving support is an **argued decision with a number**: how many `support_lines`,
+   which face they land on, why re-orienting, chamfering and splitting were worse. Support
+   scars the face it touches 0.1–0.3 mm proud — **never on a mating, sealing, sliding or
+   show face**; reorient or split rather than sand it afterwards.
+4. **Slicer warnings: zero, or each one explained.**
+
+**Fix in this order:** re-orient (§1b, free) → chamfer/teardrop the offender (§2b, §2c) →
+arch, rib or sacrificially bridge the span (§2d) → split (§2e) → accept support with an
+argument. Re-run `print_readiness` after every geometry change, `slice_check` **once at
+the end** (it costs minutes). Clean at 45° but still sliced with support → suspect **mesh
+tessellation** (§2a) before re-modelling. Keep every value above on a `Parameters` alias
+and prove wall thickness with `cross_section`.
+
+## 7. Final sweep (`verify` can reference this)
+
+Orientation table (§1b) → down-faces roofed (§2b) → bores (§2c) → bridges (§2d) → minimum
+features (§4) → bed contact, warp, seam (§5) → gate with numbers (§6) → `check_solid`.
+Whatever you skipped is reported as a trade-off, not dropped.
+
+Sources: Prusa KB (overhangs, bridging, elephant's foot, teardrops); Protolabs/Hubs FDM
+guides (min wall/hole/pin/text); Markforged/MatterHackers testing (anisotropy).

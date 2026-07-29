@@ -29,7 +29,7 @@ from PySide import QtCore, QtNetwork
 
 import agentsmith_supervision
 
-BRIDGE_VERSION = "0.18.1"
+BRIDGE_VERSION = "0.19.0"
 DEFAULT_PORT = 18421
 DISCOVERY_FILE = "/tmp/freecad-agentsmith-bridge.json"
 EVENT_FILE = "/tmp/freecad-agentsmith-events.jsonl"
@@ -1046,7 +1046,7 @@ class BridgeServer(QtCore.QObject):
         if self.protected_documents:
             forbidden = (
                 "App.closeDocument", "FreeCAD.closeDocument", "App.openDocument",
-                "FreeCAD.openDocument", ".saveAs(", "os.remove(", "os.unlink(",
+                "FreeCAD.openDocument", ".newDocument(", ".saveAs(", "os.remove(", "os.unlink(",
                 ".unlink(", "shutil.move(", "shutil.rmtree(", "os.rename(",
                 "os.replace(",
             )

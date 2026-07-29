@@ -791,3 +791,112 @@ PŘED 7/8 → recenzent: "FINDING: overall length … is 45 mm, not the required
       s vysvětlením** (tiše smazaná chyba se zopakuje), snímky opraveny se
       zachovaným `score_as_recorded`.
 
+
+---
+
+## Fáze 19 — harness na úroveň seniorního konstruktéra *(2026-07-26; obsah hotov, účinnost neměřena)*
+
+Zadání uživatele: agent má respektovat všechny požadavky zadání, umět si určit a
+obstarat chybějící informace, domýšlet použití a předvídat selhání, a navrhovat
+věci hezké, ergonomické, příjemně použitelné a tisknutelné s minimem podpěr.
+
+- [x] **19.0** Limity zvednuty: e2e `--task-timeout` 900 → 1800 s (900 dvakrát
+      uřízlo doběhající wall hook), panel +30/45/60min volby, výchozí rozpočet
+      480 → 900 s, reviewer timeout 240 → 480 s.
+- [x] **19.1** Orchestrace 11 opus agentů (workflow `harness-senior-engineer`,
+      ~1,19 M tokenů, 48 min): 5 výzkumníků (požadavky/informace, foresight-FMEA,
+      ergonomie/design, DFAM-podpěry, gap-analýza) → 3 autoři s vlastnictvím
+      souborů → 2 adversariální kritici → 1 opravář. Kritici našli 28 vad
+      (mrtvý neregistrovaný playbook, `measure` předepsané na věci, které neumí,
+      rozpory design×print3d, stará čísla sekcí), opravář zapracoval 26;
+      registraci design.md jsem provedl sám (registry v7, 21 playbooků).
+- [x] **19.2** `core.md`: „Read the brief like a contract" — R1…Rn checklist
+      s třídami DIM/PARAM/BUILD/SHAPE/REPORT, DEVIATION místo reinterpretace,
+      zápis do `.agentsmith/requirements/<task_id>.md`; šestibodový sweep neznámých
+      (LOOKUP/DERIVABLE/ASSUME), provenance tagy u každého čísla (GIVEN…RECALL),
+      povinné OPEN QUESTIONS; DoD rozšířeno na 12 bodů.
+- [x] **19.3** `verify.md`: requirements close-out (každé R s důkazem podle třídy)
+      + pre-mortem šesti režimů selhání (přetížení, nejslabší průřez, čas,
+      ±0,3 mm tisková variace, uchycení ke zdi, montáž/servis se scratch-geometrií
+      mazanou v tomtéž kroku).
+- [x] **19.4** Nový playbook `design.md` (9,8 kB): klasifikace hran (hand/seen/
+      bed/internal/functional s poloměry), rodina radiusů ≤ 3 aliasy, ergonomická
+      čísla s prameny (Kong & Lowe, MIL-STD-1472, CCOHS, IEC 62368-1 10° tilt),
+      síly ovládání v N, lead-iny, 3 nožky, stabilita CoM ≤ 5,7 × vzdálenost
+      k hraně půdorysu, kosmetické plochy vs. orientace tisku, text ≥ 4 mm.
+- [x] **19.5** `print3d.md` přepsán na support-minimal proceduru (12,7 kB):
+      pose-first workflow se zapsanou build osou, chamfer-not-overhang tabulka,
+      teardrop/diamond díry, mosty podle materiálu, dělení dílu + spoje,
+      akceptační brána §6 přes `print_readiness` + `slice_check` s numerickými
+      cíli. `research.md` zeštíhlen na akviziční proceduru,
+      `reference-dimensions.md` + tabulka únosnosti hmoždinek/kotev.
+- [ ] **19.6** **Změřit.** Složený prompt 94,8 → 114,6 kB (+21 %) — cena je reálná
+      a musí ji obhájit A/B na golden úlohách. Backlog měření z rešerše:
+      `slice_check` check typ v run_eval (supports_generated == false);
+      orientation-optimality (naměřený up_axis vs. nejlepší ze šesti);
+      `requirements[]` pole v task JSON + grading pokrytí; nová golden úloha
+      `underspecified_toothbrush_holder` (měří OPEN QUESTIONS, ne geometrii);
+      `horizontal_rod_holder` (teardrop) a `desk_pen_cup` (grip/stabilita/radius
+      family — první úloha, kde propadne funkčně správný, ale hrubý model);
+      fake-certainty probe (citace bez fetch eventu = fail); guardrail: čas/úlohu
+      nesmí vzrůst > 10 %.
+
+**Akceptace:** ⏳ A/B běh starý vs. nový harness na 5 úlohách × 3 běhy se
+stejným backendem; primární metrika = nepokryté klauzule zadání + nové design
+checky, guardrail čas a tokeny.
+
+---
+
+## Fáze 20 — duplicitní instance FreeCADu *(hotovo 2026-07-26)*
+
+Uživatel: při iteraci nad modelem se otevírají další instance FreeCADu.
+
+- [x] **20.1** **Diagnóza.** Addon ani harness FreeCAD nespouští (ověřeno grepem
+      i historií úloh). Viníkem byl ad-hoc `host_bridge.py` ve scratchpadu měřicí
+      session z 18.5: v noci spustil AppImage, nepočkal na pomalý studený start
+      (mount + Qt + addony = desítky sekund), vyhodnotil to jako selhání a za
+      45 s spustil druhou instanci (PID 600293 v 00:45:31, PID 600659 v 00:46:16).
+      Obě zůstaly běžet; discovery přepsala ta druhá, první visela osiřelá.
+- [x] **20.2** **Úklid.** Read-only dotazem `documents` ověřeno, že uživatelův
+      rozdělaný dokument (`Unnamed`/TowelHook) i e2e dokumenty žijí v registrované
+      instanci 600659; osiřelá 600293 (jen prázdný `EvalHost`, nikdo se jí neptal)
+      ukončena SIGTERM.
+- [x] **20.3** **Oprava příčiny:** oficiální `eval/host_bridge.py` v repu
+      (ad-hoc skript žil jen ve scratchpadu — nástroj, který není v repu, si
+      každá session vymyslí znovu a jinak špatně). Kontrakt: **nikdy nespustit
+      druhý FreeCAD, když živý bridge odpovídá** — liveness = pid žije A socket
+      odpoví ping s tokenem (obojí: mrtvý pid s cizím socketem ani živý FreeCAD
+      s vypnutým bridge se nepočítá); launch čeká na READY až 180 s a hlídá,
+      že discovery záznam je nový, ne ten zatuchlý; zámek s převzetím po mrtvém
+      držiteli srazí souběžné launchery na jeden; `--status/--stop/--replace`,
+      stop zabíjí jen instanci, kterou pozitivně identifikuje. Duální režim:
+      pod FreeCADem je to bootovací skript (Edit+Python, `EvalHost`).
+- [x] **20.4** Hláška `run_e2e.py` při nedostupném bridge ukazuje na
+      `eval/host_bridge.py` + varování před ručním spouštěním AppImage ve smyčce;
+      totéž v `eval/README.md`. 13 testů (`tests/test_host_bridge.py`) na
+      rozhodovací logiku bez FreeCADu; reuse cesta ověřena naživo proti běžící
+      instanci („reusing live bridge: pid 600659 — NOT launching another FreeCAD").
+
+- [x] **20.5** **Druhý zdroj „dalších oken": nový dokument uprostřed úlohy.**
+      Eventy 17:49: úloha startuje na `Unnamed`, o vteřiny později
+      `document_activated: toiletPaperHolder` — worker si přes `execute_python`
+      + `App.newDocument` založil vlastní dokument (= nové 3D okno) a modeloval
+      v něm. Není to jen kosmetika: checkpointy, rollback i file guard jsou
+      navázané na dokument aktivní při startu, takže práce v novém dokumentu
+      běží mimo záchrannou síť. Oprava dvojmo: (a) `.newDocument(` přidán do
+      forbidden listu `execute_python` (platí jen při běžící úloze —
+      `protected_documents`; e2e sandbox tooling mimo úlohu funguje dál),
+      (b) core.md: „Never create a document either" — nový díl = nové Body,
+      jméno = `Label`. Test `tests/test_execute_python_guard.py` (source-scan,
+      bez FreeCADu). Harness .md se čte čerstvě při další úloze; **blocklist se
+      projeví až po restartu FreeCADu** (bridge_server je naimportovaný).
+
+- [x] **20.6** **Třetí zdroj oken + „MCP se nemůže připojit": `sys.executable`
+      v AppImage = binárka FreeCADu.** Panel ho zapisoval do `mcp.json` jako
+      příkaz MCP serveru, takže backend se zapnutým MCP „spouštěl server"
+      bootem druhého FreeCAD GUI (okno uprostřed úlohy); po restartu FreeCADu
+      mount `/tmp/.mount_*` zanikl a každý MCP connect selhal — přesně to, co
+      uživatel viděl. `mcp_server.py` je stdlib-only a FreeCAD nepotřebuje.
+      Oprava: `agentsmith_backends.mcp_python()` — kandidát projde jen když je
+      basename `python*`, jinak `shutil.which("python3")`; nasazeno v panelu
+      i v `run_e2e --mcp`. 3 testy (`McpPython` v test_backends).

@@ -160,6 +160,31 @@ class UnknownInput(unittest.TestCase):
 
 
 
+class McpPython(unittest.TestCase):
+    """The MCP server interpreter must be a python, never the host binary.
+
+    Found live (2026-07-26): inside the AppImage, sys.executable is the freecad
+    binary, so the panel wrote `/tmp/.mount_*/usr/bin/freecad mcp_server.py`
+    into mcp.json. The backend then "started the MCP server" by booting a whole
+    second FreeCAD GUI — and after a restart the dead mount path made every
+    MCP connect fail.
+    """
+
+    def test_freecad_appimage_executable_is_rejected(self):
+        found = backends.mcp_python("/tmp/.mount_freecaXYZ/usr/bin/freecad",
+                                    which=lambda name: "/usr/bin/python3")
+        self.assertEqual(found, "/usr/bin/python3")
+
+    def test_real_python_is_kept(self):
+        self.assertEqual(backends.mcp_python("/usr/bin/python3.12"), "/usr/bin/python3.12")
+
+    def test_no_python_found_still_names_one_for_path_resolution(self):
+        # The backend CLI resolves the command in the user's shell PATH, which
+        # is healthier than the AppImage's environment — a bare name is the
+        # right last resort, silence is not.
+        self.assertEqual(backends.mcp_python("freecad", which=lambda name: None), "python3")
+
+
 class McpWiring(unittest.TestCase):
     """Pointing a backend at the bridge's MCP server, per run and per CLI."""
 

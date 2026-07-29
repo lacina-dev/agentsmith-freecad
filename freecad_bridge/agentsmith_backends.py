@@ -13,6 +13,9 @@ Module name is prefixed because every FreeCAD Mod directory shares sys.path.
 """
 
 import json
+import os
+import shutil
+import sys
 
 # Program names as invoked on PATH. The panel overrides these from its own
 # backend detection; the eval runner uses them directly.
@@ -25,6 +28,23 @@ MAX_ATTACHED_VISUALS = 5
 # Name the bridge's MCP server is registered under. Kept short because the model
 # sees it as a tool-name prefix in some clients.
 MCP_SERVER_NAME = "agentsmith"
+
+
+def mcp_python(executable=None, which=shutil.which):
+    """Interpreter to launch mcp_server.py with — a real python, NEVER the host
+    process's sys.executable taken on faith.
+
+    Inside the FreeCAD AppImage, sys.executable is the freecad binary itself.
+    Writing that into mcp.json meant the backend "started the MCP server" by
+    booting a whole second FreeCAD GUI (seen live: a new window mid-task), and
+    after a restart the dead /tmp/.mount_* path made every MCP connect fail.
+    mcp_server.py is stdlib-only and talks to the bridge over its socket, so
+    the system python3 is the right runner everywhere.
+    """
+    candidate = executable if executable is not None else sys.executable
+    if os.path.basename(candidate or "").startswith("python"):
+        return candidate
+    return which("python3") or "python3"
 
 
 def mcp_config_document(command, args, name=MCP_SERVER_NAME):
