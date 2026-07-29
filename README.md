@@ -7,6 +7,13 @@ honest about materials and manufacturability, an independent reviewer checks the
 result, and a real slicer says whether it will print. When it will, the G-code
 goes straight to your printer.
 
+<p align="center">
+  <img src="docs/double-hook.png" alt="Double coat hook modeled by AgentSmith" width="640">
+  <br>
+  <em>Modeled from one sentence: a double wall hook — countersunk screw holes,
+  filleted hooks, laid out to print flat without supports.</em>
+</p>
+
 ```
 you ──prompt/voice──▶ chat panel ──▶ AI backend CLI ──▶ bridge (localhost socket)
                           │                                    │
@@ -25,10 +32,19 @@ you ──prompt/voice──▶ chat panel ──▶ AI backend CLI ──▶ br
   input; the harness forces interpretation before geometry — which view is this,
   what is the functional pose, which feature does the work.
 - **Knows engineering, not just CAD.** Playbooks for FDM materials and
-  anisotropy, mechanics sizing, print design rules, tolerances, fasteners,
-  enclosures, sheet metal, plus a pattern library (snap-fits, threaded bosses,
-  hinges…). Eighteen playbooks, indexed and loaded by trigger, plus two files
-  that always go along: the core methodology and the accumulated lessons.
+  anisotropy, mechanics sizing, design-for-minimal-supports, tolerances,
+  fasteners, gears and workbenches, enclosures, sheet metal, design & ergonomics
+  (edge treatment, grip dimensions, stability), plus a pattern library
+  (snap-fits, threaded bosses, hinges…). Twenty-one playbooks, indexed and
+  loaded by trigger, plus two files that always go along: the core methodology
+  and the accumulated lessons.
+- **Treats the brief as a contract.** Every requirement in your prompt becomes a
+  numbered checklist item that is verified — or reported as an explicit
+  deviation — before the task ends. Unknowns are looked up (reference dimension
+  tables, your attached images, web search where the backend has one) or stated
+  as open questions with the assumption that was made; every number carries its
+  provenance. A pre-mortem pass asks how each functional feature will fail in
+  service before declaring the model done.
 - **Verifies instead of asserting.** Geometry probes (`model_digest`,
   `cross_section`, `print_readiness`, `feature_probe` for hole axes and mounting
   faces), an independent read-only reviewer with optional auto-fix rounds, and an
@@ -321,8 +337,8 @@ Two things the software cannot check, and you must:
 | Path | What it is |
 |---|---|
 | `freecad_bridge/` | The addon: bridge server and chat panel (`BridgeGui.py`), agent tools (`slice_check.py`, `print_send.py`, `freecad_bridge_client.py`), printer discovery and the remembered list (`printer_discovery.py`, `printer_book.py`), voice (`agentsmith_voice.py`), MCP server (`mcp_server.py`) |
-| `freecad_bridge/harness/` | The modeling harness: 18 playbooks plus core methodology and lessons, a pattern library, and failures written up as rules (`registry.json` indexes them) |
-| `eval/` | Objective scoring: `run_eval.py` grades the open model against golden tasks, `run_e2e.py` runs full agent sessions headlessly, `compare.py` diffs two runs, `baselines/` holds committed scorecards |
+| `freecad_bridge/harness/` | The modeling harness: 21 playbooks plus core methodology and lessons, a pattern library, and failures written up as rules (`registry.json` indexes them) |
+| `eval/` | Objective scoring: `run_eval.py` grades the open model against golden tasks, `run_e2e.py` runs full agent sessions headlessly, `compare.py` diffs two runs, `host_bridge.py` starts (or safely reuses) a FreeCAD to host the bridge, `baselines/` holds committed scorecards |
 | `tests/` | Unit tests for the addon's GUI-free logic — no FreeCAD needed |
 | `install.sh` | Symlinks the addon into FreeCAD's `Mod` directory |
 | `AGENTS.md` | Instructions for AI agents working in this repository |
@@ -365,6 +381,8 @@ python3 eval/compare.py a.json b.json # regression diff between two runs
 | Symptom | Cause |
 |---|---|
 | Panel behaves like an older version | FreeCAD keeps imported modules in memory — restart it, or press **Reload updated bridge** |
+| Another FreeCAD window opens during a task | Fixed in 0.19.0 (three separate causes: the MCP config pointed at the FreeCAD binary itself, the agent could create documents mid-task, and eval tooling could double-launch). Restart FreeCAD after updating so the running instance picks the fixes up |
+| "MCP cannot connect" | Stale `<project>/.agentsmith/mcp.json` from before 0.19.0 pointing at a dead `/tmp/.mount_*` path. It is rewritten on the next task with MCP enabled; MCP is off by default because measurements showed no benefit yet |
 | "no PLA profile" / "no network host" although both are configured | A stale copy of `slicer-config.json` in the project directory used to shadow the real one. Fixed (the copy is refreshed every task), but an old project folder is worth checking |
 | Task stops with "repeatedly changed X" | The runaway-mutation guard. Sketches and spreadsheets are built one event at a time and have a high ceiling; reaching it usually means a genuine loop |
 | Printer found, but shown as *odpovídá (chybí klíč)* | No credential. Create the file named by `api_key_file` |
