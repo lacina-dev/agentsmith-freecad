@@ -70,7 +70,7 @@
       "id": "manufacture",
       "label": "Manufacturing (slice / print)",
       "file": "manufacture.md",
-      "trigger": "the request asks to slice, print, or send the model to a printer (in any language: 'slice it', 'print this', 'naslicuj', 'vytiskni'), alone or combined with modeling in one request"
+      "trigger": "the request asks to slice, print, or send the model to a printer ('slice it', 'print this', 'send it to the printer' — in any language), alone or combined with modeling in one request"
     },
     {
       "id": "materials",

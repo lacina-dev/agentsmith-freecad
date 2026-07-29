@@ -49,7 +49,7 @@ you ──prompt/voice──▶ chat panel ──▶ AI backend CLI ──▶ br
   `cross_section`, `print_readiness`, `feature_probe` for hole axes and mounting
   faces), an independent read-only reviewer with optional auto-fix rounds, and an
   eval harness that grades models against golden tasks.
-- **Slices and prints from chat.** "naslicuj to" / "vytiskni to" runs real
+- **Slices and prints from chat.** "slice this" / "print it" runs real
   OrcaSlicer, reports supports and warnings, and uploads to the printer.
 - **Refuses to print blind.** Before starting a print it compares the nozzle
   diameter and filament baked into the G-code against what the machine actually
@@ -316,8 +316,8 @@ stranger's device as your printer.
 
 ### Slicing and printing
 
-Ask in chat, in any language — "slice this", "print it on the Prusa in PLA",
-"naslicuj to", "vytiskni to na Prusovi z PLA" — or run the tools:
+Ask in chat, in any language — "slice this", "print it on the Prusa in PLA" —
+or run the tools:
 
 ```bash
 cd freecad_bridge
