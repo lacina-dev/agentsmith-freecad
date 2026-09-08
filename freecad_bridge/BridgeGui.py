@@ -246,7 +246,7 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
         self.backend.currentIndexChanged.connect(self._backend_changed)
         self.model.currentIndexChanged.connect(self._model_changed)
         self.budget_choice = QtWidgets.QComboBox()
-        self.budget_choice.setToolTip("Time budget for the task. Once it runs out the watchdog kills the backend and rolls the document back.")
+        self.budget_choice.setToolTip("Time budget for the task. Once it runs out the watchdog stops the backend; a document that changed and validates is kept and saved, an unverified change is rolled back.")
         for budget_label, budget_seconds in (
             ("Quick edit (8 min)", 480),
             ("New part (15 min)", 900),

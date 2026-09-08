@@ -253,13 +253,17 @@ status/error messages are English.
 
 While it runs you get a live log, a supervisor status line and a progress
 readout. On failure the document is rolled back to the checkpoint taken before
-the task started.
+the task started, and the state being discarded is saved first as a
+`task-rescue-*` checkpoint in `.freecad-checkpoints/`. Running out of the time
+budget is not a failure by itself: the backend is stopped, and if the document
+changed and validates it is kept and saved (only the backend's final write-up
+may be incomplete); an unverified change is rolled back as usual.
 
 Panel controls worth knowing:
 
 | Control | What it does |
 |---|---|
-| **Budget** | Wall-clock budget; the watchdog stops a task that overruns |
+| **Budget** | Wall-clock budget; the watchdog stops a task that overruns, keeping a verified model and rolling back an unverified one |
 | **Reviewer** | An independent read-only pass that grades the result afterwards |
 | **Auto-fix** | Lets the agent fix what the reviewer found, up to N rounds |
 | **No escalation** | Optionally retry a failed round on a stronger model |

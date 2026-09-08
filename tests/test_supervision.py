@@ -69,6 +69,81 @@ class ClassifyRollback(unittest.TestCase):
         self.assertEqual(verdict["follow_up"], sup.RESTORE_SNAPSHOT)
 
 
+class ClassifyBudgetExhausted(unittest.TestCase):
+    """The watchdog stopped the backend because time ran out.
+
+    Observed live (2026-09-08): a backend finished and validated a toilet-roll
+    holder after ~11 minutes, sliced it, then spent the rest of a 15-minute
+    budget fetching anchor load tables for the write-up. The watchdog killed it
+    and the supervisor rolled the finished model back to an empty document.
+    """
+
+    def test_verified_document_is_kept_after_timeout(self):
+        verdict = classify(exit_code=-1, budget_exhausted=True)
+        self.assertEqual(verdict["status"], "success")
+        self.assertEqual(verdict["follow_up"], sup.COMMIT_AND_SAVE)
+        self.assertTrue(verdict["budget_exhausted"])
+
+    def test_timeout_without_the_flag_is_still_a_failure(self):
+        # The flag is what waives the clean-exit rule; a plain crash keeps it.
+        verdict = classify(exit_code=-1)
+        self.assertEqual(verdict["status"], "failed")
+        self.assertEqual(verdict["follow_up"], sup.RESTORE_SNAPSHOT)
+        self.assertFalse(verdict["budget_exhausted"])
+
+    def test_invalid_geometry_after_timeout_is_rolled_back(self):
+        verdict = classify(exit_code=-1, validation_ok=False, budget_exhausted=True)
+        self.assertEqual(verdict["status"], "failed")
+        self.assertEqual(verdict["follow_up"], sup.RESTORE_SNAPSHOT)
+
+    def test_unchanged_document_after_timeout_is_not_a_success(self):
+        verdict = classify(exit_code=-1, changed=False, observed_mutations=0, budget_exhausted=True)
+        self.assertEqual(verdict["status"], "failed")
+        self.assertEqual(verdict["follow_up"], sup.ABORT_TRANSACTION)
+
+    def test_fingerprint_jitter_alone_does_not_keep_a_timed_out_document(self):
+        # Changed fingerprint but zero observed mutations: nothing real to keep.
+        verdict = classify(exit_code=-1, observed_mutations=0, budget_exhausted=True)
+        self.assertEqual(verdict["status"], "failed")
+
+    def test_timeout_with_no_bridge_events_is_not_a_success(self):
+        verdict = classify(exit_code=-1, bridge_events=0, budget_exhausted=True)
+        self.assertEqual(verdict["status"], "failed")
+
+    def test_clean_exit_at_the_edge_is_an_ordinary_success(self):
+        verdict = classify(exit_code=0, budget_exhausted=True)
+        self.assertEqual(verdict["status"], "success")
+        self.assertTrue(verdict["budget_exhausted"])
+
+    def test_normal_success_does_not_carry_the_flag(self):
+        self.assertFalse(classify()["budget_exhausted"])
+
+
+class BudgetExhaustionRecognition(unittest.TestCase):
+    def test_the_watchdogs_own_message_is_recognised(self):
+        violation, _, _ = sup.evaluate_guard(elapsed_seconds=901, budget_seconds=900,
+                                             rss_growth_bytes=0, missing_checks=0)
+        self.assertTrue(sup.is_budget_exhaustion(violation))
+
+    def test_every_budget_size_is_recognised(self):
+        for minutes in (1, 8, 15, 25, 30, 45, 60):
+            self.assertTrue(sup.is_budget_exhaustion(sup.BUDGET_EXHAUSTED_TEMPLATE % minutes))
+
+    def test_other_guard_findings_are_not(self):
+        for reason in ("FreeCAD memory grew by more than 1 GiB during the task",
+                       "Backend closed the protected FreeCAD document",
+                       "Backend changed the protected document path",
+                       "Task exceeded its budget", "", None):
+            self.assertFalse(sup.is_budget_exhaustion(reason), reason)
+
+    def test_a_document_violation_still_outranks_the_budget(self):
+        # When the document itself is broken the finding is not a mere timeout.
+        violation, _, _ = sup.evaluate_guard(elapsed_seconds=901, budget_seconds=900,
+                                             rss_growth_bytes=0, missing_checks=0,
+                                             document_missing=True)
+        self.assertFalse(sup.is_budget_exhaustion(violation))
+
+
 class ClassifyActionOnly(unittest.TestCase):
     """Slice/print/query tasks legitimately change nothing."""
 

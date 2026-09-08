@@ -105,9 +105,24 @@ class TaskSupervisionMixin(object):
         if restore_file:
             _atomic_write_bytes(canonical, task["file_backup_bytes"])
         if violation and not task.get("guard_violation"):
-            task["guard_violation"] = violation
-            self.codex_output.appendPlainText("\nFILE GUARD: " + violation)
-            self._set_task_state("failed", "File guard tripped")
+            if agentsmith_supervision.is_budget_exhaustion(violation):
+                if task.get("budget_exhausted"):
+                    return
+                # Time ran out, but nothing is wrong with the document. Stop the
+                # backend and let _supervise_codex_result decide on the evidence:
+                # a document that changed and validates is kept and saved, one
+                # that does not is rolled back. A finished model must never be
+                # discarded because the backend spent its last minutes writing
+                # the report.
+                task["budget_exhausted"] = violation
+                self.codex_output.appendPlainText(
+                    "\nTIME BUDGET: %s. Stopping the backend; the live document is kept "
+                    "if it verifies, otherwise rolled back." % violation)
+                self._set_task_state("running", "Budget exhausted, verifying")
+            else:
+                task["guard_violation"] = violation
+                self.codex_output.appendPlainText("\nFILE GUARD: " + violation)
+                self._set_task_state("failed", "File guard tripped")
             if self.codex_process.state() != QtCore.QProcess.NotRunning:
                 self.codex_process.terminate()
     def _task_safety_violation(self, reason):
@@ -123,6 +138,17 @@ class TaskSupervisionMixin(object):
         canonical = task["canonical_path"]
         current = _optional_document(task["document"])
         if current is not None:
+            # Whatever is about to be thrown away goes to a rescue checkpoint
+            # first. A rollback is the supervisor's judgement that the result was
+            # not verified — it is not a judgement that hours of the user's
+            # geometry are worthless, and a checkpoint costs nothing.
+            try:
+                rescue = self.server._checkpoint({"document": current.Name,
+                                                  "label": "task-rescue-" + task["id"]})["path"]
+                task["rescue_checkpoint"] = rescue
+                self.codex_output.appendPlainText("\nRESCUE: pre-rollback state saved to %s" % rescue)
+            except Exception as exc:
+                self.codex_output.appendPlainText("\nRESCUE: could not checkpoint the pre-rollback state: %s" % exc)
             App.closeDocument(current.Name)
         _atomic_write_bytes(canonical, task["file_backup_bytes"])
         restored = App.openDocument(canonical)
@@ -464,8 +490,14 @@ class TaskSupervisionMixin(object):
         delivery_contract = (
             "TIME BUDGET & DELIVERY CONTRACT (read first):\n"
             "- You have a HARD wall-clock limit of about %d minutes from the moment this task started. "
-            "When it is exceeded a watchdog terminates you (SIGTERM) and rolls the document back, so an "
-            "unfinished investigation counts as a FAILED task with zero value.\n"
+            "When it is exceeded a watchdog terminates you (SIGTERM). A live document that already "
+            "verifies (valid geometry, mutations through the bridge) is KEPT and saved, but an unverified "
+            "change is rolled back, and anything you have not written to disk yet — the report, the "
+            "checklist, screenshots — is lost. An unfinished investigation with no mutation counts as a "
+            "FAILED task with zero value.\n"
+            "- Order of work once the geometry is verified: save the document, write the verification "
+            "report to disk, THEN do optional research (web look-ups for fasteners, anchors, load tables). "
+            "Research is strictly optional once the model is verified; never let it eat the budget.\n"
             "- Your job is to DELIVER a verified change, not to investigate exhaustively. Diagnose quickly, "
             "then act. The moment you have a plausible root cause, implement the fix through the bridge "
             "BEFORE doing any further analysis. Analysis that never produces a live mutation is a failure.\n"
@@ -1165,6 +1197,7 @@ class TaskSupervisionMixin(object):
                 bridge_events=bridge_events,
                 observed_mutations=observed_mutations,
                 assistant_text="\n".join(task.get("assistant_messages", [])),
+                budget_exhausted=bool(task.get("budget_exhausted")),
             )
             action_only = verdict["action_only"]
             outcome = {
@@ -1177,6 +1210,10 @@ class TaskSupervisionMixin(object):
                 "validation_errors": validation["errors"],
                 "checkpoint": task["checkpoint"],
             }
+            if task.get("budget_exhausted"):
+                outcome["reason"] = task["budget_exhausted"] + (
+                    "; the verified live document was kept" if verdict["budget_exhausted"]
+                    else "; the unverified change was rolled back")
             follow_up = verdict["follow_up"]
             if action_only:
                 # Nothing to commit or snapshot: just close the empty transaction.
@@ -1207,6 +1244,8 @@ class TaskSupervisionMixin(object):
                 doc.recompute()
                 task["transaction_open"] = False
         outcome["guard_violation"] = task.get("guard_violation")
+        outcome["budget_exhausted"] = bool(task.get("budget_exhausted"))
+        outcome["rescue_checkpoint"] = task.get("rescue_checkpoint")
         outcome["canonical_path"] = canonical
         outcome["before_file_sha256"] = task["file_backup_sha256"]
         task_events = [event for event in self.server.events if event["seq"] > task["before_event_sequence"]]
@@ -1230,6 +1269,12 @@ class TaskSupervisionMixin(object):
         self._append_document_history(canonical, outcome)
         if outcome["status"] == "success" and outcome.get("action_only"):
             message = "SUPERVISOR PASS: action-only task (slice/print/query) completed; document intentionally unchanged."
+        elif outcome["status"] == "success" and outcome.get("budget_exhausted"):
+            message = ("SUPERVISOR PASS (time budget exhausted): the backend was stopped after %d min, "
+                       "but the live document changed, %d bridge events, geometry valid — kept and saved. "
+                       "The backend's final report and checklist may be incomplete."
+                       % (max(1, int(task.get("budget_seconds", LIVE_EDIT_BUDGET_SECONDS)) // 60),
+                          outcome["bridge_events"]))
         elif outcome["status"] == "success":
             message = "SUPERVISOR PASS: live document changed, %d bridge events, geometry valid." % outcome["bridge_events"]
         else:

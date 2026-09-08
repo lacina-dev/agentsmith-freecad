@@ -98,6 +98,31 @@ def mutation_violation(total_events, object_name, object_count, type_id):
     return None
 
 
+#: Message the watchdog reports when the wall-clock budget runs out. Kept as a
+#: template so ``is_budget_exhaustion`` can recognise it again later: budget
+#: exhaustion is the one guard finding that does NOT imply the document is bad.
+BUDGET_EXHAUSTED_TEMPLATE = "Task exceeded its %d minute live-editing budget"
+_BUDGET_PREFIX, _BUDGET_SUFFIX = BUDGET_EXHAUSTED_TEMPLATE.split("%d")
+
+
+def is_budget_exhaustion(violation):
+    """True when a guard violation is merely the time budget running out.
+
+    Every other guard finding (document closed, moved, deleted, runaway memory)
+    says something is wrong with the document or the host, so the snapshot must
+    be restored. Running out of time says nothing about the geometry — a backend
+    that finished modeling and then spent its last minutes on the write-up has
+    left a perfectly good, verifiable document behind. Throwing that away was
+    the single most expensive failure mode this supervisor had.
+    """
+    if not violation:
+        return False
+    if not (violation.startswith(_BUDGET_PREFIX) and violation.endswith(_BUDGET_SUFFIX)):
+        return False
+    middle = violation[len(_BUDGET_PREFIX):len(violation) - len(_BUDGET_SUFFIX)]
+    return middle.isdigit()
+
+
 def evaluate_guard(elapsed_seconds, budget_seconds, rss_growth_bytes,
                    missing_checks, document_missing=False, path_changed=False,
                    canonical_missing=False, discovery_error=None,
@@ -133,7 +158,7 @@ def evaluate_guard(elapsed_seconds, budget_seconds, rss_growth_bytes,
         missing_checks = 0
 
     if elapsed_seconds > budget_seconds:
-        violation = violation or ("Task exceeded its %d minute live-editing budget"
+        violation = violation or (BUDGET_EXHAUSTED_TEMPLATE
                                   % max(1, int(budget_seconds) // 60))
     elif rss_growth_bytes > memory_limit_bytes:
         violation = violation or "FreeCAD memory grew by more than 1 GiB during the task"
@@ -142,12 +167,22 @@ def evaluate_guard(elapsed_seconds, budget_seconds, rss_growth_bytes,
 
 
 def classify_outcome(exit_code, changed, validation_ok, bridge_events,
-                     observed_mutations=None, assistant_text=""):
+                     observed_mutations=None, assistant_text="",
+                     budget_exhausted=False):
     """Decide whether a finished backend run counts as delivered.
 
     A normal modeling task succeeds only on hard evidence: the backend exited
     cleanly, the document fingerprint changed, geometry validates, and at least
     one mutation actually came through the bridge.
+
+    ``budget_exhausted`` means the watchdog stopped the backend because its time
+    ran out. The clean-exit requirement is waived then — the backend never got
+    the chance to exit cleanly — but every piece of evidence about the document
+    still has to be present: it changed, it validates, mutations came through
+    the bridge. A kept-after-timeout result is reported with
+    ``"budget_exhausted": True`` so the panel can say the write-up may be
+    incomplete. A document that does not verify after a timeout is rolled back
+    exactly as before.
 
     ``observed_mutations`` is the document observer's mutation counter for this
     task (None when unavailable, e.g. metrics belonged to another task). It —
@@ -158,7 +193,13 @@ def classify_outcome(exit_code, changed, validation_ok, bridge_events,
 
     Returns ``{"status", "action_only", "follow_up"}``.
     """
-    success = bool(exit_code == 0 and changed and validation_ok and bridge_events > 0)
+    exited_cleanly = exit_code == 0
+    evidence = bool(changed and validation_ok and bridge_events > 0)
+    if budget_exhausted:
+        # Killed mid-flight: a real, observed mutation is required, not just a
+        # fingerprint that may have jittered on a recompute.
+        evidence = evidence and observed_mutations != 0
+    success = bool(evidence and (exited_cleanly or budget_exhausted))
 
     # An action-only task (slice / print / status query) legitimately leaves the
     # document alone, so it can never satisfy the "changed" test above. It is
@@ -186,4 +227,5 @@ def classify_outcome(exit_code, changed, validation_ok, bridge_events,
         "status": "success" if success else "failed",
         "action_only": action_only,
         "follow_up": follow_up,
+        "budget_exhausted": bool(budget_exhausted and success and not action_only),
     }
