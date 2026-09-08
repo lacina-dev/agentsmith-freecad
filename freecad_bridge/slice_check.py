@@ -349,7 +349,8 @@ def run_slice(cfg, printer, model_path, workdir):
             json.dump(merged, handle)
         flat[kind] = out
 
-    orca = cfg.get("orca_binary") or "orca-slicer"
+    # '~' is allowed so slicer-config.json stays portable between machines.
+    orca = os.path.expanduser(cfg.get("orca_binary") or "orca-slicer")
     if not (os.path.isabs(orca) and os.path.isfile(orca)) and shutil.which(orca) is None:
         raise SetupError(
             f"OrcaSlicer binary {orca!r} not found on PATH. Set 'orca_binary' in "

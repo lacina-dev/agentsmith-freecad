@@ -2,8 +2,8 @@
   "comment": "AgentSmith slicer fleet for slice_check.py / print_send.py. 'default_printer' is used when the user doesn't name one — the agent must then OFFER the other keys in its report. Profile names are resolved inside OrcaSlicer's bundled resources (auto-extracted once from the AppImage into ~/.cache/agentsmith-orca/profiles; the preset 'inherits' chain is flattened because the CLI doesn't resolve it for by-path presets). CORE One tip: process '0.20mm STRUCTURAL @CORE One 0.4' is the better choice for load-bearing parts — mention it when relevant. 'ston_wolf' is a custom machine; the user supplies its profiles at home (fill machine/process/filament, remove 'unconfigured'). 'network' blocks feed print_send.py — hosts get filled in at home. Each printer lists the filament profiles it can slice for under 'filaments'; 'filament' is the one currently loaded and 'loaded_filament' names it. Material is a property of the spool in the machine, not of the machine — say which one you sliced for in the report, and use --filament to slice for a different material without editing this file.",
   "default_printer": "core_one",
   "support": "auto",
-  "orca_binary": "orca-slicer",
-  "orca_appimage": "",
+  "orca_binary": "~/AppImages/orcaslicer.appimage",
+  "orca_appimage": "~/AppImages/orcaslicer.appimage",
   "profiles_dir": null,
   "printers": {
     "core_one": {
