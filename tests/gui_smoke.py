@@ -92,8 +92,11 @@ def run():
                     "lessons.md")
         smoke.check("models for claude", lambda: len(panel._models_for_backend("claude")) > 0,
                     True)
-        # Returns None while the MCP checkbox is off, which is the default state.
-        smoke.check("mcp settings", lambda: panel._mcp_settings(project) is None, True)
+        # Returns None while the MCP checkbox is off; the checkbox state is a
+        # saved user preference, so the check follows it instead of assuming
+        # the default.
+        smoke.check("mcp settings", lambda: (panel._mcp_settings(project) is None)
+                    == (not panel.mcp_enabled.isChecked()), True)
         smoke.check("history reads", lambda: isinstance(panel._effective_history([]), list),
                     True)
         smoke.check("capture views", lambda: len(panel._selected_capture_views()) > 0, True)
