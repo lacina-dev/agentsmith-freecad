@@ -37,7 +37,9 @@ class ClassifySuccess(unittest.TestCase):
         self.assertEqual(verdict["follow_up"], sup.COMMIT_AND_SAVE)
 
     def test_nonzero_exit_is_never_success(self):
-        self.assertEqual(classify(exit_code=1)["status"], "failed")
+        # With a verified document it is "interrupted" (kept), never "success".
+        self.assertNotEqual(classify(exit_code=1)["status"], "success")
+        self.assertEqual(classify(exit_code=1, validation_ok=False)["status"], "failed")
 
     def test_invalid_geometry_is_never_success(self):
         self.assertEqual(classify(validation_ok=False)["status"], "failed")
@@ -53,7 +55,7 @@ class ClassifySuccess(unittest.TestCase):
 
 class ClassifyRollback(unittest.TestCase):
     def test_unverified_but_real_change_is_rolled_back(self):
-        verdict = classify(exit_code=1, observed_mutations=2)
+        verdict = classify(exit_code=1, validation_ok=False, observed_mutations=2)
         self.assertEqual(verdict["status"], "failed")
         self.assertEqual(verdict["follow_up"], sup.RESTORE_SNAPSHOT)
 
@@ -67,6 +69,49 @@ class ClassifyRollback(unittest.TestCase):
         # happened": with a changed fingerprint we roll back rather than trust it.
         verdict = classify(exit_code=1, observed_mutations=None)
         self.assertEqual(verdict["follow_up"], sup.RESTORE_SNAPSHOT)
+
+
+class ClassifyInterrupted(unittest.TestCase):
+    """The backend died with a non-zero exit but left a verified document.
+
+    Observed live (2026-09-08, second toilet-roll holder): model built, sliced,
+    report written, then the provider's usage limit killed the backend on the
+    last step (exit 1). The finished model was rolled back for an exit code.
+    """
+
+    def test_verified_document_survives_a_backend_crash(self):
+        verdict = classify(exit_code=1)
+        self.assertEqual(verdict["status"], "interrupted")
+        self.assertTrue(verdict["interrupted"])
+        self.assertEqual(verdict["follow_up"], sup.COMMIT_AND_SAVE)
+
+    def test_interrupted_is_not_success(self):
+        # The reviewer and the "Done · verified" state are for clean finishes.
+        self.assertNotEqual(classify(exit_code=1)["status"], "success")
+
+    def test_invalid_geometry_after_a_crash_is_rolled_back(self):
+        verdict = classify(exit_code=1, validation_ok=False)
+        self.assertEqual(verdict["status"], "failed")
+        self.assertEqual(verdict["follow_up"], sup.RESTORE_SNAPSHOT)
+
+    def test_crash_with_no_observed_mutation_is_not_kept(self):
+        verdict = classify(exit_code=1, observed_mutations=0)
+        self.assertEqual(verdict["status"], "failed")
+
+    def test_crash_with_foreign_metrics_is_still_rolled_back(self):
+        # Metrics from another task (None) are not evidence for keeping anything.
+        verdict = classify(exit_code=1, observed_mutations=None)
+        self.assertEqual(verdict["status"], "failed")
+        self.assertEqual(verdict["follow_up"], sup.RESTORE_SNAPSHOT)
+
+    def test_crash_that_changed_nothing_just_aborts(self):
+        verdict = classify(exit_code=1, changed=False, observed_mutations=0)
+        self.assertEqual(verdict["status"], "failed")
+        self.assertEqual(verdict["follow_up"], sup.ABORT_TRANSACTION)
+
+    def test_clean_finishes_are_not_interrupted(self):
+        self.assertFalse(classify()["interrupted"])
+        self.assertFalse(classify(exit_code=-1, budget_exhausted=True)["interrupted"])
 
 
 class ClassifyBudgetExhausted(unittest.TestCase):
@@ -84,11 +129,12 @@ class ClassifyBudgetExhausted(unittest.TestCase):
         self.assertEqual(verdict["follow_up"], sup.COMMIT_AND_SAVE)
         self.assertTrue(verdict["budget_exhausted"])
 
-    def test_timeout_without_the_flag_is_still_a_failure(self):
-        # The flag is what waives the clean-exit rule; a plain crash keeps it.
+    def test_timeout_without_the_flag_is_not_a_success(self):
+        # The flag is what waives the clean-exit rule; a plain crash with a
+        # verified document is "interrupted" (kept), never "success".
         verdict = classify(exit_code=-1)
-        self.assertEqual(verdict["status"], "failed")
-        self.assertEqual(verdict["follow_up"], sup.RESTORE_SNAPSHOT)
+        self.assertEqual(verdict["status"], "interrupted")
+        self.assertEqual(verdict["follow_up"], sup.COMMIT_AND_SAVE)
         self.assertFalse(verdict["budget_exhausted"])
 
     def test_invalid_geometry_after_timeout_is_rolled_back(self):
@@ -229,6 +275,11 @@ class ClassifyActionOnly(unittest.TestCase):
     def test_real_mutation_with_marker_is_not_action_only(self):
         # A worker that mutated the model may not claim the action-only exemption.
         verdict = classify(exit_code=1, changed=True, observed_mutations=4,
+                           assistant_text=MARKER + ": lying about it")
+        self.assertFalse(verdict["action_only"])
+        self.assertNotEqual(verdict["status"], "success")
+        # ...and with geometry that does not validate the mutation is rolled back.
+        verdict = classify(exit_code=1, changed=True, observed_mutations=4, validation_ok=False,
                            assistant_text=MARKER + ": lying about it")
         self.assertFalse(verdict["action_only"])
         self.assertEqual(verdict["follow_up"], sup.RESTORE_SNAPSHOT)

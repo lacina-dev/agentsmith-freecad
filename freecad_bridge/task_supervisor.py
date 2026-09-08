@@ -703,6 +703,9 @@ class TaskSupervisionMixin(object):
         elif outcome and outcome.get("status") == "success":
             self._set_task_state("success", "Done · verified")
             self.codex_output.appendPlainText("\n✓ TASK DONE AND VERIFIED")
+        elif outcome and outcome.get("status") == "interrupted":
+            self._set_task_state("stopped", "Interrupted · document kept")
+            self.codex_output.appendPlainText("\n■ BACKEND DIED — VERIFIED DOCUMENT KEPT")
         else:
             self._set_task_state("failed", "Failed · no verified change")
             self.codex_output.appendPlainText("\n✗ TASK FAILED OR WAS NOT VERIFIED")
@@ -710,7 +713,7 @@ class TaskSupervisionMixin(object):
         try:
             if Gui.activeDocument() is not None:
                 view = Gui.activeDocument().activeView()
-                task_succeeded = bool(outcome and outcome.get("status") == "success")
+                task_succeeded = bool(outcome and outcome.get("status") in ("success", "interrupted"))
                 if task_succeeded and not had_geometry_before:
                     # The task created the document's first geometry: make sure the new
                     # solids are visible and framed, instead of restoring a camera that
@@ -1226,6 +1229,10 @@ class TaskSupervisionMixin(object):
                 outcome["reason"] = task["budget_exhausted"] + (
                     "; the verified live document was kept" if verdict["budget_exhausted"]
                     else "; the unverified change was rolled back")
+            elif verdict["interrupted"]:
+                outcome["reason"] = ("backend exited with code %s before its final message; "
+                                     "the verified live document was kept" % exit_code)
+            outcome["interrupted"] = verdict["interrupted"]
             follow_up = verdict["follow_up"]
             if action_only:
                 # Nothing to commit or snapshot: just close the empty transaction.
@@ -1289,11 +1296,17 @@ class TaskSupervisionMixin(object):
                           outcome["bridge_events"]))
         elif outcome["status"] == "success":
             message = "SUPERVISOR PASS: live document changed, %d bridge events, geometry valid." % outcome["bridge_events"]
+        elif outcome["status"] == "interrupted":
+            message = ("SUPERVISOR INTERRUPTED: the backend exited with code %s before its final message "
+                       "(see its last lines above for why — e.g. a usage limit), but the live document "
+                       "changed, %d bridge events, geometry valid — kept and saved. Check the model and "
+                       "the report yourself; the reviewer did not run."
+                       % (outcome.get("exit_code"), outcome["bridge_events"]))
         else:
             message = "SUPERVISOR FAIL: no verified valid live-document change. " + json.dumps(outcome, ensure_ascii=False)
         self.codex_output.appendPlainText("\n" + message)
         self.codex_supervisor_status.setText(message)
-        if outcome["status"] != "success":
+        if outcome["status"] == "failed":
             # A failed task is the other half of the lessons pipeline: the reviewer
             # never runs on one, so without this the richest failures — rolled back,
             # timed out, guard-tripped — would never reach lessons.md.

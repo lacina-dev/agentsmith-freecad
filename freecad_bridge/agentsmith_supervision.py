@@ -243,15 +243,29 @@ def classify_outcome(exit_code, changed, validation_ok, bridge_events,
     still-touched features rebuild every time, which once made a successful
     slice-only task read as "changed".
 
-    Returns ``{"status", "action_only", "follow_up"}``.
+    Returns ``{"status", "action_only", "follow_up", "budget_exhausted",
+    "interrupted"}``; ``status`` is ``success``, ``interrupted`` (backend died,
+    verified document kept) or ``failed``.
     """
     exited_cleanly = exit_code == 0
     evidence = bool(changed and validation_ok and bridge_events > 0)
+    # Evidence that survives the backend not finishing: a real, observed
+    # mutation is required, not just a fingerprint that may have jittered on a
+    # recompute, and metrics that belong to another task (None) do not count.
+    hard_evidence = bool(evidence and isinstance(observed_mutations, int)
+                         and observed_mutations > 0)
     if budget_exhausted:
-        # Killed mid-flight: a real, observed mutation is required, not just a
-        # fingerprint that may have jittered on a recompute.
-        evidence = evidence and observed_mutations != 0
+        evidence = hard_evidence
     success = bool(evidence and (exited_cleanly or budget_exhausted))
+    # The backend died (non-zero exit: usage limit, crash, SIGKILL) but left a
+    # document that changed, validates and was really mutated through the
+    # bridge. Observed live: a backend finished modeling, slicing and the
+    # report, then hit its provider's usage limit on the last step; rolling the
+    # verified model back for an exit code was pure loss. It is kept and saved,
+    # reported as "interrupted" rather than success because the backend never
+    # sent its final message — the panel does not run the reviewer on it.
+    interrupted = bool(not success and not exited_cleanly and not budget_exhausted
+                       and hard_evidence)
 
     # An action-only task (slice / print / status query) legitimately leaves the
     # document alone, so it can never satisfy the "changed" test above. It is
@@ -267,7 +281,7 @@ def classify_outcome(exit_code, changed, validation_ok, bridge_events,
     if action_only:
         # Nothing to commit or snapshot: just close the empty transaction.
         follow_up = ABORT_TRANSACTION
-    elif success:
+    elif success or interrupted:
         follow_up = COMMIT_AND_SAVE
     elif changed and (observed_mutations is None or observed_mutations > 0):
         # A real but unverified mutation is the dangerous case — roll it back.
@@ -276,8 +290,9 @@ def classify_outcome(exit_code, changed, validation_ok, bridge_events,
         follow_up = ABORT_TRANSACTION
 
     return {
-        "status": "success" if success else "failed",
+        "status": "success" if success else ("interrupted" if interrupted else "failed"),
         "action_only": action_only,
         "follow_up": follow_up,
         "budget_exhausted": bool(budget_exhausted and success and not action_only),
+        "interrupted": interrupted,
     }

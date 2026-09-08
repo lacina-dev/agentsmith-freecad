@@ -175,7 +175,9 @@ class PanelWiring(unittest.TestCase):
         # A reviewer verdict is only half the story: the reviewer never runs on a
         # failed task, so the richest failures would otherwise never be recorded.
         self.assertIn("if agentsmith_review.VERDICT_CONCERNS in (verdict_text or \"\"):", self.source)
-        self.assertIn('if outcome["status"] != "success":', self.source)
+        # "failed" only: an interrupted task (backend died, verified document
+        # kept) is an infrastructure event, not a modeling lesson.
+        self.assertIn('if outcome["status"] == "failed":', self.source)
 
     def test_writing_requires_an_explicit_confirmation(self):
         self.assertIn("QtWidgets.QMessageBox.Save", self.source)

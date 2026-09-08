@@ -257,7 +257,10 @@ the task started, and the state being discarded is saved first as a
 `task-rescue-*` checkpoint in `.freecad-checkpoints/`. Running out of the time
 budget is not a failure by itself: the backend is stopped, and if the document
 changed and validates it is kept and saved (only the backend's final write-up
-may be incomplete); an unverified change is rolled back as usual.
+may be incomplete); an unverified change is rolled back as usual. The same
+holds when the backend itself dies (a provider usage limit, a crash): a document
+that changed, validates and was really mutated through the bridge is kept and
+the task is reported as *interrupted*.
 
 Panel controls worth knowing:
 
