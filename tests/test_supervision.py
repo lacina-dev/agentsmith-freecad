@@ -144,6 +144,59 @@ class BudgetExhaustionRecognition(unittest.TestCase):
         self.assertFalse(sup.is_budget_exhaustion(violation))
 
 
+class BudgetNotice(unittest.TestCase):
+    """The countdown the bridge attaches to every response during a task."""
+
+    def notice(self, elapsed, budget=1500):
+        return sup.budget_notice(elapsed, budget)
+
+    def test_early_in_the_task_there_is_no_notice(self):
+        info = self.notice(60)
+        self.assertEqual(info["phase"], "working")
+        self.assertIsNone(info["notice"])
+        self.assertEqual(info["remaining_seconds"], 1440)
+        self.assertEqual(info["elapsed_seconds"], 60)
+
+    def test_half_time_asks_for_verified_geometry(self):
+        info = self.notice(800)
+        self.assertEqual(info["phase"], "half")
+        self.assertIn("HALF-TIME", info["notice"])
+
+    def test_last_quarter_forbids_research_and_starts_the_wrap_up(self):
+        info = self.notice(1200)
+        self.assertEqual(info["phase"], "wrap_up")
+        self.assertIn("No web search/fetch", info["notice"])
+        self.assertIn("save", info["notice"])
+
+    def test_final_minutes_demand_save_and_the_final_message(self):
+        info = self.notice(1420)
+        self.assertEqual(info["phase"], "final")
+        self.assertIn("save", info["notice"])
+
+    def test_final_phase_is_at_least_two_minutes_even_on_a_short_budget(self):
+        # 8-minute budget: 10 % would be 48 s, the floor is 120 s. On a budget
+        # this short the quarter-mark and the floor coincide, so "half" hands
+        # over to "final" directly — the last call still comes 2 min early.
+        self.assertEqual(self.notice(370, budget=480)["phase"], "final")
+        self.assertEqual(self.notice(350, budget=480)["phase"], "half")
+
+    def test_expired_says_so(self):
+        info = self.notice(1501)
+        self.assertEqual(info["phase"], "expired")
+        self.assertEqual(info["remaining_seconds"], -1)
+        self.assertIn("EXPIRED", info["notice"])
+
+    def test_phases_are_monotonic_over_the_whole_budget(self):
+        order = ["working", "half", "wrap_up", "final", "expired"]
+        seen = [self.notice(t)["phase"] for t in range(0, 1600, 10)]
+        ranks = [order.index(phase) for phase in seen]
+        self.assertEqual(ranks, sorted(ranks))
+        self.assertEqual(sorted(set(seen), key=order.index), order)
+
+    def test_degenerate_budget_does_not_divide_by_zero(self):
+        self.assertEqual(self.notice(5, budget=0)["phase"], "expired")
+
+
 class ClassifyActionOnly(unittest.TestCase):
     """Slice/print/query tasks legitimately change nothing."""
 

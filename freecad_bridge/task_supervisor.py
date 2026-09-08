@@ -50,7 +50,7 @@ from bridge_server import (BRIDGE_VERSION, DISCOVERY_FILE, _atomic_write_bytes,
 # Hard wall-clock limit for a single live-editing task. The watchdog terminates
 # the backend once this is exceeded. It is also surfaced to the backend so it can
 # budget its time and act decisively instead of investigating until it is killed.
-LIVE_EDIT_BUDGET_SECONDS = 900
+LIVE_EDIT_BUDGET_SECONDS = 1500
 
 
 
@@ -442,6 +442,8 @@ class TaskSupervisionMixin(object):
             self._autofix_chain = None
         self.server.protected_documents[doc.Name] = canonical_path
         self.server.supervised_metrics = {"task_id": task_id, "mutation_events": 0, "object_events": {}}
+        self.server.task_clock = {"started": self.codex_task["started"],
+                                  "budget_seconds": self.codex_task["budget_seconds"]}
         self._append_document_history(canonical_path, {
             "status": "pending", "task_id": task_id, "prompt": prompt,
             "backend": backend_id, "model": model_id, "started": self.codex_task["started"],
@@ -486,24 +488,33 @@ class TaskSupervisionMixin(object):
         document = doc.FileName
         kind_label, harness_text = self._harness_text()
         self.codex_task["task_kind"] = "auto"
-        budget_minutes = max(1, self.codex_task["budget_seconds"] // 60)
+        budget_seconds = int(self.codex_task["budget_seconds"])
+        budget_minutes = max(1, budget_seconds // 60)
+        started_at = self.codex_task["started"]
+        clock = lambda epoch: time.strftime("%H:%M:%S", time.localtime(epoch))
         delivery_contract = (
             "TIME BUDGET & DELIVERY CONTRACT (read first):\n"
-            "- You have a HARD wall-clock limit of about %d minutes from the moment this task started. "
-            "When it is exceeded a watchdog terminates you (SIGTERM). A live document that already "
-            "verifies (valid geometry, mutations through the bridge) is KEPT and saved, but an unverified "
-            "change is rolled back, and anything you have not written to disk yet — the report, the "
-            "checklist, screenshots — is lost. An unfinished investigation with no mutation counts as a "
-            "FAILED task with zero value.\n"
-            "- Order of work once the geometry is verified: save the document, write the verification "
-            "report to disk, THEN do optional research (web look-ups for fasteners, anchors, load tables). "
-            "Research is strictly optional once the model is verified; never let it eat the budget.\n"
+            "- You have a HARD wall-clock limit of %d minutes: started %s, deadline %s (local time, "
+            "the same clock `date` prints). When it is exceeded a watchdog terminates you (SIGTERM). "
+            "A live document that already verifies (valid geometry, mutations through the bridge) is "
+            "KEPT and saved, but an unverified change is rolled back, and anything you have not written "
+            "to disk yet — the report, the checklist, screenshots — is lost. An unfinished investigation "
+            "with no mutation counts as a FAILED task with zero value.\n"
+            "- EVERY bridge response carries a `budget` field: `remaining_seconds`, `phase` "
+            "(working / half / wrap_up / final / expired) and a `notice`. Read it on every call and obey "
+            "the notice immediately — it is the supervisor talking to you. Do not rely on your own sense "
+            "of elapsed time.\n"
+            "- Phase plan for %d minutes: lookups (web search/fetch, datasheets) ONLY in the first tenth, "
+            "at most 3 of them, and only for numbers geometry depends on; geometry complete and verified "
+            "by the `half` notice; the wrap-up (save -> fit_view + screenshot -> report with REQUIREMENTS "
+            "and OPEN QUESTIONS) starts no later than the `wrap_up` notice. After the geometry is verified "
+            "there is NO further research: a number you did not look up is reported as RECALL/ASSUMED with "
+            "an open question, never fetched at the end.\n"
+            "- Write the report incrementally: after each verified milestone append to the report file "
+            "under .agentsmith/reports/ so that being stopped never loses the write-up.\n"
             "- Your job is to DELIVER a verified change, not to investigate exhaustively. Diagnose quickly, "
             "then act. The moment you have a plausible root cause, implement the fix through the bridge "
             "BEFORE doing any further analysis. Analysis that never produces a live mutation is a failure.\n"
-            "- Budget your time: spend at most the first third on diagnosis, apply the fix in the middle third, "
-            "and reserve the final third for validate/save/screenshot. If unsure how long you have been running, "
-            "check the wall clock with `date` and compare against the start time.\n"
             "- Prefer a concrete, reversible parametric change early and iterate over it, rather than seeking "
             "perfect certainty first. Fix the general/driving cause (e.g. a wrong Spreadsheet parameter or "
             "sketch expression), not a hard-coded value for this one model.\n"
@@ -511,7 +522,7 @@ class TaskSupervisionMixin(object):
             "MAKE that change through the bridge now; do not merely report what should be changed.\n"
             "- Only report FAILED without a mutation if the live document is genuinely unreachable or the request "
             "is impossible; in that case say so early instead of burning the whole budget.\n"
-        ) % budget_minutes
+        ) % (budget_minutes, clock(started_at), clock(started_at + budget_seconds), budget_minutes)
         reference_section = ""
         if reference_local_images or reference_urls:
             reference_lines = ["USER-SUPPLIED REFERENCES (MANDATORY visual target):"]
@@ -682,6 +693,7 @@ class TaskSupervisionMixin(object):
                 finally:
                     self.server.protected_documents.pop(task["document"], None)
                     self.server.supervised_metrics = None
+                    self.server.task_clock = None
                     self.codex_task = None
             outcome = {"status": "failed", "reason": "supervisor exception: %s" % exc, "restored": bool(task)}
             self.codex_output.appendPlainText("\nSUPERVISOR ERROR: " + str(exc))
@@ -1289,6 +1301,7 @@ class TaskSupervisionMixin(object):
                                outcome.get("response", "")[-1500:])
         self.server.protected_documents.pop(task["document"], None)
         self.server.supervised_metrics = None
+        self.server.task_clock = None
         self.codex_task = None
         self._refresh_document_history(True)
         return outcome

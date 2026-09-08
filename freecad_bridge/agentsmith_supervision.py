@@ -166,6 +166,58 @@ def evaluate_guard(elapsed_seconds, budget_seconds, rss_growth_bytes,
     return violation, missing_checks, restore_file
 
 
+# --------------------------------------------------------------------------- #
+# Budget countdown delivered through the bridge
+# --------------------------------------------------------------------------- #
+#: Fractions of the budget REMAINING at which the bridge starts telling the
+#: backend to change gear. The backend cannot be messaged mid-run, but it talks
+#: to the bridge constantly, so every response carries the clock and, past these
+#: thresholds, an explicit instruction. Observed live: a backend with no clock
+#: finished modeling at 11 of 15 minutes and then researched anchor load tables
+#: until the watchdog killed it.
+BUDGET_HALF_FRACTION = 0.5
+BUDGET_WRAP_UP_FRACTION = 0.25
+#: Absolute floor for the final phase, so a short budget still gets a last call.
+BUDGET_FINAL_SECONDS = 120
+
+
+def budget_notice(elapsed_seconds, budget_seconds):
+    """The clock the bridge attaches to every response while a task runs.
+
+    Returns ``{"elapsed_seconds", "remaining_seconds", "phase", "notice"}``.
+    ``phase`` is ``working`` → ``half`` → ``wrap_up`` → ``final`` → ``expired``;
+    ``notice`` is None while working and an imperative sentence afterwards.
+    """
+    budget = max(1, int(budget_seconds))
+    elapsed = max(0, int(elapsed_seconds))
+    remaining = budget - elapsed
+    fraction = remaining / float(budget)
+    minutes_left = max(0, remaining) // 60
+    if remaining <= 0:
+        phase, notice = "expired", (
+            "BUDGET EXPIRED: the watchdog is stopping you. If the document is not saved, "
+            "call save NOW and send your final message.")
+    elif remaining <= max(BUDGET_FINAL_SECONDS, int(budget * 0.1)):
+        phase, notice = "final", (
+            "FINAL %d s: no more modeling, probing or research. Call save, then send the final "
+            "message with REQUIREMENTS and OPEN QUESTIONS immediately." % remaining)
+    elif fraction <= BUDGET_WRAP_UP_FRACTION:
+        phase, notice = "wrap_up", (
+            "WRAP UP: %d min left. Geometry must be final now. No web search/fetch, no new "
+            "features. Order: save -> fit_view + screenshot -> write the report (REQUIREMENTS, "
+            "OPEN QUESTIONS). Anything not yet looked up becomes RECALL/ASSUMED with an open "
+            "question." % minutes_left)
+    elif fraction <= BUDGET_HALF_FRACTION:
+        phase, notice = "half", (
+            "HALF-TIME: %d min left. Finish and verify the geometry within the next half; "
+            "lookups are over. Start the wrap-up (save, screenshot, report) with a quarter of the "
+            "budget still on the clock." % minutes_left)
+    else:
+        phase, notice = "working", None
+    return {"elapsed_seconds": elapsed, "remaining_seconds": remaining,
+            "phase": phase, "notice": notice}
+
+
 def classify_outcome(exit_code, changed, validation_ok, bridge_events,
                      observed_mutations=None, assistant_text="",
                      budget_exhausted=False):

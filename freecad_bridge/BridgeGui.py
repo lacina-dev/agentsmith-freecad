@@ -249,9 +249,9 @@ class BridgePanel(TaskSupervisionMixin, QtWidgets.QWidget):
         self.budget_choice.setToolTip("Time budget for the task. Once it runs out the watchdog stops the backend; a document that changed and validates is kept and saved, an unverified change is rolled back.")
         for budget_label, budget_seconds in (
             ("Quick edit (8 min)", 480),
-            ("New part (15 min)", 900),
-            ("Assembly (25 min)", 1500),
-            ("Complex part (30 min)", 1800),
+            ("Small part (15 min)", 900),
+            ("New part (25 min)", 1500),
+            ("Complex part / assembly (30 min)", 1800),
             ("Large assembly (45 min)", 2700),
             ("Marathon (60 min)", 3600),
         ):

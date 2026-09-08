@@ -105,6 +105,10 @@ material) · **user and use** (mounting height, one-handed, wet or gloved hands)
   first source that answers: `reference-dimensions` → reference images/URLs attached to
   this task → web search/fetch if this run has one → a datasheet or standard you can
   name. One honest attempt per gap; cap at ~3 lookups and ~10 % of the time budget.
+  **Lookups happen before geometry, never after it.** Once the geometry is verified a
+  number you did not fetch is reported as `RECALL`/`ASSUMED` with an open question —
+  a late fetch for the write-up is exactly how a finished model got killed by the
+  watchdog (L11, `lessons.md`).
 - **DERIVABLE** — compute it and show the arithmetic.
 - **ASSUME** — only the user can know (their preference, their wall). Never let a LOOKUP
   masquerade as an ASSUME; that is exactly how L9 happened.
@@ -148,6 +152,9 @@ you invented certainty (2–5 is normal) — but do not pad it with settled numb
 7. The result bodies are **Visible** (`set_visibility`), construction inputs and
    intermediate booleans hidden — a model the user cannot see reads as failure. Then
    `save`, `fit_view` and a final `screenshot`.
+   **Start this wrap-up no later than the bridge's `wrap_up` budget notice** — every
+   bridge response carries `budget.remaining_seconds` and `budget.phase`; obey the
+   notice the moment it appears.
 8. Every real-world object the part interacts with has **dimensions stated with a
    source** and the model checked against them — clearance and chosen variant included.
 9. **Multi-part designs say how they stay together.** Per interface: what holds it

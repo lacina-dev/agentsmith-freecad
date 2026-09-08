@@ -29,7 +29,7 @@ from PySide import QtCore, QtNetwork
 
 import agentsmith_supervision
 
-BRIDGE_VERSION = "0.19.0"
+BRIDGE_VERSION = "0.20.0"
 DEFAULT_PORT = 18421
 DISCOVERY_FILE = "/tmp/freecad-agentsmith-bridge.json"
 EVENT_FILE = "/tmp/freecad-agentsmith-events.jsonl"
@@ -362,6 +362,9 @@ class BridgeServer(QtCore.QObject):
         self.access_level = "edit"
         self.protected_documents = {}
         self.supervised_metrics = None
+        #: {"started": epoch, "budget_seconds": int} while a supervised task runs.
+        #: Every response then carries a "budget" countdown — see _read.
+        self.task_clock = None
         self.events = deque(maxlen=2000)
         self.event_sequence = 0
         self.observer = DocumentObserver(self._record_event)
@@ -497,6 +500,10 @@ class BridgeServer(QtCore.QObject):
                     "error_type": type(exc).__name__,
                     "traceback": traceback.format_exc(),
                 }
+            clock = self.task_clock
+            if clock and isinstance(response, dict):
+                response["budget"] = agentsmith_supervision.budget_notice(
+                    time.time() - clock["started"], clock["budget_seconds"])
             client.write((json.dumps(response, ensure_ascii=False) + "\n").encode("utf-8"))
             client.flush()
 

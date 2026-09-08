@@ -263,7 +263,7 @@ Panel controls worth knowing:
 
 | Control | What it does |
 |---|---|
-| **Budget** | Wall-clock budget; the watchdog stops a task that overruns, keeping a verified model and rolling back an unverified one |
+| **Budget** | Wall-clock budget (default 25 min). Every bridge response carries a countdown (`budget.remaining_seconds`, `phase`, `notice`) so the backend wraps up in time; if it still overruns, the watchdog stops it, keeping a verified model and rolling back an unverified one |
 | **Reviewer** | An independent read-only pass that grades the result afterwards |
 | **Auto-fix** | Lets the agent fix what the reviewer found, up to N rounds |
 | **No escalation** | Optionally retry a failed round on a stronger model |

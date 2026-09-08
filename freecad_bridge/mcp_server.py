@@ -85,7 +85,14 @@ def bridge_call(command, args, discovery_file=DEFAULT_DISCOVERY, timeout=DEFAULT
 
     if not parsed.get("ok"):
         raise RuntimeError(str(parsed.get("error", "unknown bridge error")))
-    return parsed.get("result")
+    result = parsed.get("result")
+    # The bridge attaches a budget countdown to every response while a task
+    # runs. The CLI wrapper prints the whole envelope; here only "result" is
+    # shown to the model, so carry the clock across.
+    if isinstance(result, dict) and "budget" in parsed:
+        result = dict(result)
+        result["budget"] = parsed["budget"]
+    return result
 
 
 def serve(stdin, stdout, call_bridge, server_version="0.0.0"):

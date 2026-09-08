@@ -94,3 +94,16 @@ for **standard fasteners** (screw into a counterbore, nut in a pocket, threaded 
 the part), and for long printed parts consider a **threaded rod as a stiffener** — plastic
 is weak between layers, a steel rod makes it steel's problem. State in the report what the
 user has to buy. → promoted: `core` DoD item 9, `assembly` §3 and §3b, `fasteners` §6.
+
+## L11 — The clock is the supervisor's, not yours (2026-09-08, toilet-roll holder)
+A holder was modeled, verified, sliced and saved by minute 11 of a 15-minute budget. The
+backend then spent the remaining minutes fetching anchor load tables and a vendor PDF for
+the write-up, was killed by the watchdog at 15:00, and the supervisor rolled the finished
+model back to an empty document. **Rule:** lookups happen before geometry, never after
+it; once the geometry is verified a number you did not fetch is `RECALL`/`ASSUMED` with an
+open question. Every bridge response carries `budget.remaining_seconds`, `phase` and a
+`notice` — obey the notice the moment it appears (`half`: geometry done and verified;
+`wrap_up`: save → screenshot → report, nothing else; `final`: save and send). Write the
+report incrementally so being stopped never loses it. → promoted: `core` LOOKUP rule and
+DoD item 7; supervisor now keeps a verified model on timeout and rescues the discarded
+state before any rollback.
